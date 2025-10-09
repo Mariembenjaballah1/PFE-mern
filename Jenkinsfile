@@ -9,7 +9,7 @@ pipeline {
     TRIVY_TEMPLATE     = 'html.tpl' 
     ARGOCD_USERNAME = 'admin'
     ARGOCD_PASSWORD = credentials('argocd-admin-password')
-    ARGOCD_SERVER = 'https://192.168.1.50:31209'
+    ARGOCD_SERVER = 'https://192.168.56.101:31209'
     APP_NAME = 'inventrack-app'
   }
 
