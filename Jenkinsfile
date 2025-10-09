@@ -7,7 +7,10 @@ pipeline {
     DOCKER_FRONT_IMAGE = "mariembenjaballah/mern-frontend:v1"
     DOCKER_BACK_IMAGE = "mariembenjaballah/mern-backend:latest"
     TRIVY_TEMPLATE     = 'html.tpl' 
-    NVD_API_KEY = credentials('NVD_API_KEY')
+    ARGOCD_USERNAME = 'admin'
+    ARGOCD_PASSWORD = credentials('argocd-admin-password')
+    ARGOCD_SERVER = 'https://192.168.1.50:31209'
+    APP_NAME = 'inventrack-app'
   }
 
   stages {
@@ -45,16 +48,7 @@ pipeline {
       }
     }
   
- stage('OWASP Dependency Check') {
-  steps {
-    echo "Starting OWASP Dependency Check scan..."
-    dependencyCheck additionalArguments: "--nvdApiKey=${NVD_API_KEY} --project \"my-project\" --scan ./ --format HTML --out .",
-                    odcInstallation: 'DependencyCheck'
-    echo "OWASP Dependency Check scan completed."
-    archiveArtifacts artifacts: 'dependency-check-report.html', fingerprint: true
-    dependencyCheckPublisher pattern: 'dependency-check-report.html'
-  }
-}
+ 
     stage('Build Docker Image FRONTEND') {
       steps {
         script {
@@ -175,6 +169,49 @@ stage('Snyk IaC Scan') {
   }
 }
 
+        stage('Login Argo CD') {
+            steps {
+                sh """
+                argocd login ${env.ARGOCD_SERVER} --username ${env.ARGOCD_USERNAME} --password ${env.ARGOCD_PASSWORD} --insecure
+                """
+            }
+        }
+  
+
+        stage('Sync Application') {
+            steps {
+                sh "argocd app sync ${env.APP_NAME}"
+            }
+        }
+
+        stage('Wait for Healthy') {
+            steps {
+                sh "argocd app wait ${env.APP_NAME} --health --timeout 300"
+            }
+        }
+
+        stage('Check Pods Status') {
+            steps {
+                script {
+                    def namespace = 'inventrack'
+                    def podsStatus = sh (
+                        script: "kubectl get pods -n ${namespace} --no-headers",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Pods status:\n${podsStatus}"
+
+                    def notRunning = podsStatus.readLines().findAll { !it.contains("Running") }
+
+                    if (notRunning.size() > 0) {
+                        error "Certains pods ne sont pas en état Running:\n${notRunning.join('\n')}"
+                    } else {
+                        echo "Tous les pods sont en Running ✅"
+                    }
+                }
+            }
+        }
+    
     stage('Quality Gate') {
       steps {
         timeout(time: 15, unit: 'MINUTES') {
