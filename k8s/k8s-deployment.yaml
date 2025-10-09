@@ -58,6 +58,7 @@ spec:
   resources:
     requests:
       storage: 1Gi
+  volumeName: mongo-pv
 ---
 # Backend Service
 apiVersion: v1
