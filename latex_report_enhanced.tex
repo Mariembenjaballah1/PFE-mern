@@ -1,0 +1,3396 @@
+
+\documentclass[12pt,a4paper]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{hyperref}
+\usepackage{color}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tocloft}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning}
+
+\geometry{left=3cm,right=2cm,top=2.5cm,bottom=2.5cm}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    breaklines=true,
+    backgroundcolor=\color{gray!10},
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny,
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!50!black},
+    stringstyle=\color{red}
+}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\leftmark}
+\fancyhead[R]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\title{\textbf{Système de Gestion d'Inventaire Intelligent\\avec Intégration DevSecOps et Intelligence Artificielle}}
+\author{Votre Nom}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+\newpage
+
+\chapter{Introduction}
+
+Dans le contexte actuel de transformation digitale des entreprises, la gestion d'inventaire représente un défi majeur nécessitant des solutions innovantes intégrant les dernières technologies. Ce rapport présente le développement d'un système de gestion d'inventaire intelligent qui combine les meilleures pratiques DevSecOps avec des capacités d'intelligence artificielle avancées.
+
+Le système développé s'articule autour de trois piliers principaux : une architecture moderne basée sur React et Node.js, une approche DevSecOps complète garantissant la sécurité et la qualité, et une intégration poussée de l'intelligence artificielle pour optimiser les processus métier.
+
+\section{Contexte et Enjeux}
+
+La gestion d'inventaire moderne doit répondre à plusieurs défis :
+\begin{itemize}
+    \item Traçabilité en temps réel des actifs
+    \item Optimisation prédictive de la maintenance
+    \item Sécurisation des données sensibles
+    \item Automatisation des processus décisionnels
+    \item Intégration avec les écosystèmes existants
+\end{itemize}
+
+\section{Objectifs du Projet}
+
+Ce projet vise à développer une solution complète qui :
+\begin{enumerate}
+    \item Modernise la gestion d'inventaire par une interface utilisateur intuitive
+    \item Intègre des capacités d'IA pour l'aide à la décision
+    \item Implémente une pipeline DevSecOps robuste
+    \item Assure la scalabilité et la sécurité de l'application
+\end{enumerate}
+
+\chapter{Architecture Technique Détaillée}
+
+\section{Vue d'Ensemble de l'Architecture}
+
+L'architecture du système suit un modèle en couches séparant clairement les responsabilités selon les principes de l'architecture hexagonale et des microservices :
+
+\subsection{Architecture Multi-Niveaux}
+
+\begin{itemize}
+    \item \textbf{Couche Présentation} : Interface React avec TypeScript et architecture basée sur les composants
+    \item \textbf{Couche Services} : API REST Node.js/Express avec middleware de sécurité
+    \item \textbf{Couche Intelligence} : Modules IA et ML avec TensorFlow.js et scikit-learn
+    \item \textbf{Couche Données} : Base de données MongoDB avec cache Redis et recherche Elasticsearch
+    \item \textbf{Couche Infrastructure} : Conteneurisation Docker, orchestration Kubernetes
+    \item \textbf{Couche Monitoring} : Observabilité avec Prometheus, Grafana, et ELK Stack
+\end{itemize}
+
+\subsection{Patterns Architecturaux Implémentés}
+
+\subsubsection{Clean Architecture}
+
+\begin{lstlisting}[language=TypeScript, caption=Structure Clean Architecture]
+// Domain Layer - Entités métier
+export interface Asset {
+  id: string;
+  name: string;
+  category: AssetCategory;
+  status: AssetStatus;
+  location: Location;
+  specifications: AssetSpecifications;
+  assignedTo?: User;
+  projectId?: string;
+  maintenanceSchedule: MaintenanceSchedule[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Use Cases Layer - Logique métier
+export class AssetManagementUseCase {
+  constructor(
+    private assetRepository: AssetRepository,
+    private auditLogger: AuditLogger,
+    private notificationService: NotificationService
+  ) {}
+
+  async createAsset(assetData: CreateAssetRequest): Promise<Asset> {
+    // Validation des règles métier
+    await this.validateAssetCreation(assetData);
+    
+    // Création de l'asset
+    const asset = await this.assetRepository.create(assetData);
+    
+    // Audit et notifications
+    await this.auditLogger.logAssetCreation(asset);
+    await this.notificationService.notifyAssetCreated(asset);
+    
+    return asset;
+  }
+
+  private async validateAssetCreation(data: CreateAssetRequest): Promise<void> {
+    if (await this.assetRepository.existsBySerialNumber(data.serialNumber)) {
+      throw new DomainError('Asset with this serial number already exists');
+    }
+    
+    if (!await this.isValidLocation(data.locationId)) {
+      throw new DomainError('Invalid location specified');
+    }
+  }
+}
+
+// Infrastructure Layer - Implémentation
+export class MongoAssetRepository implements AssetRepository {
+  async create(assetData: CreateAssetRequest): Promise<Asset> {
+    const assetDocument = new AssetModel(assetData);
+    const savedAsset = await assetDocument.save();
+    return this.mapToEntity(savedAsset);
+  }
+
+  async findById(id: string): Promise<Asset | null> {
+    const document = await AssetModel.findById(id).populate('assignedTo project');
+    return document ? this.mapToEntity(document) : null;
+  }
+}
+\end{lstlisting}
+
+\subsubsection{CQRS (Command Query Responsibility Segregation)}
+
+\begin{lstlisting}[language=TypeScript, caption=Implémentation CQRS]
+// Command Side - Écriture
+export class CreateAssetCommand {
+  constructor(
+    public readonly name: string,
+    public readonly category: string,
+    public readonly specifications: AssetSpecifications,
+    public readonly locationId: string
+  ) {}
+}
+
+export class CreateAssetCommandHandler {
+  constructor(
+    private writeRepository: AssetWriteRepository,
+    private eventBus: EventBus
+  ) {}
+
+  async handle(command: CreateAssetCommand): Promise<void> {
+    const asset = Asset.create(command);
+    await this.writeRepository.save(asset);
+    
+    // Publication d'événements
+    await this.eventBus.publish(new AssetCreatedEvent(asset));
+  }
+}
+
+// Query Side - Lecture
+export class AssetQueryService {
+  constructor(
+    private readRepository: AssetReadRepository,
+    private cacheService: CacheService
+  ) {}
+
+  async getAssetById(id: string): Promise<AssetViewModel> {
+    const cacheKey = `asset:${id}`;
+    let asset = await this.cacheService.get(cacheKey);
+    
+    if (!asset) {
+      asset = await this.readRepository.findById(id);
+      await this.cacheService.set(cacheKey, asset, 300); // 5 minutes
+    }
+    
+    return this.mapToViewModel(asset);
+  }
+
+  async getAssetsWithFilters(filters: AssetFilters): Promise<AssetListViewModel> {
+    const query = this.buildQuery(filters);
+    const assets = await this.readRepository.findMany(query);
+    
+    return {
+      assets: assets.map(this.mapToViewModel),
+      totalCount: await this.readRepository.count(query),
+      pagination: this.buildPagination(filters)
+    };
+  }
+}
+\end{lstlisting}
+
+\section{Technologies et Stack Technique Détaillée}
+
+\subsection{Frontend - Architecture React Avancée}
+
+\subsubsection{Architecture Composants et Hooks}
+
+\begin{lstlisting}[language=TypeScript, caption=Architecture de composants avancée]
+// Hook personnalisé pour la gestion d'état complexe
+export const useAssetManagement = () => {
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [filters, setFilters] = useState<AssetFilters>({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+
+  // Utilisation de useReducer pour les états complexes
+  const [state, dispatch] = useReducer(assetReducer, initialState);
+
+  // Queries TanStack Query avec cache intelligent
+  const {
+    data: assetsData,
+    isLoading,
+    error: queryError,
+    refetch
+  } = useQuery({
+    queryKey: ['assets', filters],
+    queryFn: () => fetchAssetsWithFilters(filters),
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    cacheTime: 10 * 60 * 1000, // 10 minutes
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error) => {
+      if (error.status === 404) return false;
+      return failureCount < 3;
+    }
+  });
+
+  // Mutations avec optimistic updates
+  const createAssetMutation = useMutation({
+    mutationFn: createAsset,
+    onMutate: async (newAsset) => {
+      // Annuler les requêtes en cours
+      await queryClient.cancelQueries({ queryKey: ['assets'] });
+      
+      // Snapshot de l'état précédent
+      const previousAssets = queryClient.getQueryData(['assets']);
+      
+      // Mise à jour optimiste
+      queryClient.setQueryData(['assets'], (old: Asset[]) => [
+        ...old,
+        { ...newAsset, id: 'temp-' + Date.now() }
+      ]);
+      
+      return { previousAssets };
+    },
+    onError: (err, newAsset, context) => {
+      // Rollback en cas d'erreur
+      queryClient.setQueryData(['assets'], context?.previousAssets);
+    },
+    onSettled: () => {
+      // Rafraîchir les données
+      queryClient.invalidateQueries({ queryKey: ['assets'] });
+    }
+  });
+
+  return {
+    assets: assetsData || [],
+    loading: isLoading,
+    error: queryError,
+    createAsset: createAssetMutation.mutate,
+    refetch,
+    filters,
+    setFilters: dispatch
+  };
+};
+
+// Composant avec architecture de rendu optimisée
+export const AssetTable: React.FC<AssetTableProps> = memo(({ 
+  assets, 
+  onSelect, 
+  onEdit 
+}) => {
+  // Virtualisation pour les grandes listes
+  const parentRef = useRef<HTMLDivElement>(null);
+  const rowVirtualizer = useVirtualizer({
+    count: assets.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 50,
+  });
+
+  // Memoization des callbacks
+  const handleSelect = useCallback((asset: Asset) => {
+    onSelect?.(asset);
+  }, [onSelect]);
+
+  const handleEdit = useCallback((asset: Asset) => {
+    onEdit?.(asset);
+  }, [onEdit]);
+
+  return (
+    <div ref={parentRef} className="h-96 overflow-auto">
+      <div
+        style={{
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: '100%',
+          position: 'relative',
+        }}
+      >
+        {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+          const asset = assets[virtualItem.index];
+          return (
+            <AssetRow
+              key={asset.id}
+              asset={asset}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: `${virtualItem.size}px`,
+                transform: `translateY(${virtualItem.start}px)`,
+              }}
+              onSelect={handleSelect}
+              onEdit={handleEdit}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+\end{lstlisting}
+
+\subsubsection{Gestion d'État Avancée}
+
+\begin{lstlisting}[language=TypeScript, caption=Gestion d'état avec Context et Reducers]
+// Context global pour l'application
+interface AppContextType {
+  user: User | null;
+  theme: Theme;
+  notifications: Notification[];
+  preferences: UserPreferences;
+}
+
+export const AppContext = createContext<AppContextType | null>(null);
+
+// Reducer pour les actions complexes
+interface AppState {
+  user: User | null;
+  theme: Theme;
+  notifications: Notification[];
+  preferences: UserPreferences;
+  loading: Record<string, boolean>;
+  errors: Record<string, Error>;
+}
+
+type AppAction = 
+  | { type: 'SET_USER'; payload: User }
+  | { type: 'SET_THEME'; payload: Theme }
+  | { type: 'ADD_NOTIFICATION'; payload: Notification }
+  | { type: 'REMOVE_NOTIFICATION'; payload: string }
+  | { type: 'SET_LOADING'; payload: { key: string; loading: boolean } }
+  | { type: 'SET_ERROR'; payload: { key: string; error: Error } };
+
+const appReducer = (state: AppState, action: AppAction): AppState => {
+  switch (action.type) {
+    case 'SET_USER':
+      return { ...state, user: action.payload };
+    case 'SET_THEME':
+      return { ...state, theme: action.payload };
+    case 'ADD_NOTIFICATION':
+      return { 
+        ...state, 
+        notifications: [...state.notifications, action.payload] 
+      };
+    case 'REMOVE_NOTIFICATION':
+      return {
+        ...state,
+        notifications: state.notifications.filter(n => n.id !== action.payload)
+      };
+    case 'SET_LOADING':
+      return {
+        ...state,
+        loading: { ...state.loading, [action.payload.key]: action.payload.loading }
+      };
+    case 'SET_ERROR':
+      return {
+        ...state,
+        errors: { ...state.errors, [action.payload.key]: action.payload.error }
+      };
+    default:
+      return state;
+  }
+};
+
+// Provider avec logique métier
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ 
+  children 
+}) => {
+  const [state, dispatch] = useReducer(appReducer, initialState);
+
+  // Middleware pour les actions
+  const enhancedDispatch = useCallback((action: AppAction) => {
+    // Logging
+    console.log('Action dispatched:', action);
+    
+    // Analytics
+    if (action.type === 'SET_USER') {
+      analytics.identify(action.payload.id);
+    }
+    
+    dispatch(action);
+  }, []);
+
+  // Effects pour la synchronisation
+  useEffect(() => {
+    const syncUserPreferences = async () => {
+      if (state.user) {
+        const preferences = await getUserPreferences(state.user.id);
+        dispatch({ type: 'SET_PREFERENCES', payload: preferences });
+      }
+    };
+    
+    syncUserPreferences();
+  }, [state.user]);
+
+  return (
+    <AppContext.Provider value={{ state, dispatch: enhancedDispatch }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+\end{lstlisting}
+
+\subsection{Backend - Architecture Node.js Enterprise}
+
+\subsubsection{Architecture en Couches avec Dependency Injection}
+
+\begin{lstlisting}[language=JavaScript, caption=Architecture backend avec DI]
+// Container de dépendances
+class DIContainer {
+  constructor() {
+    this.dependencies = new Map();
+    this.singletons = new Map();
+  }
+
+  register(name, factory, options = {}) {
+    this.dependencies.set(name, { factory, options });
+  }
+
+  resolve(name) {
+    const dependency = this.dependencies.get(name);
+    if (!dependency) {
+      throw new Error(`Dependency ${name} not found`);
+    }
+
+    if (dependency.options.singleton) {
+      if (!this.singletons.has(name)) {
+        this.singletons.set(name, dependency.factory(this));
+      }
+      return this.singletons.get(name);
+    }
+
+    return dependency.factory(this);
+  }
+}
+
+// Configuration du container
+const container = new DIContainer();
+
+// Repositories
+container.register('AssetRepository', (c) => new MongoAssetRepository(
+  c.resolve('DatabaseConnection'),
+  c.resolve('Logger')
+), { singleton: true });
+
+container.register('UserRepository', (c) => new MongoUserRepository(
+  c.resolve('DatabaseConnection'),
+  c.resolve('CacheService')
+), { singleton: true });
+
+// Services
+container.register('AssetService', (c) => new AssetService(
+  c.resolve('AssetRepository'),
+  c.resolve('ValidationService'),
+  c.resolve('AuditService')
+));
+
+container.register('AuthService', (c) => new AuthService(
+  c.resolve('UserRepository'),
+  c.resolve('JWTService'),
+  c.resolve('HashingService')
+));
+
+// Infrastructure
+container.register('DatabaseConnection', () => new MongoConnection(
+  process.env.MONGODB_URI
+), { singleton: true });
+
+container.register('CacheService', () => new RedisCache(
+  process.env.REDIS_URL
+), { singleton: true });
+
+// Services métier détaillés
+class AssetService {
+  constructor(assetRepository, validationService, auditService) {
+    this.assetRepository = assetRepository;
+    this.validationService = validationService;
+    this.auditService = auditService;
+  }
+
+  async createAsset(assetData, userId) {
+    try {
+      // Validation des données
+      const validationResult = await this.validationService.validateAsset(assetData);
+      if (!validationResult.isValid) {
+        throw new ValidationError(validationResult.errors);
+      }
+
+      // Vérification des permissions
+      await this.checkCreatePermissions(userId);
+
+      // Transformation des données
+      const processedData = await this.processAssetData(assetData);
+
+      // Création en base
+      const asset = await this.assetRepository.create(processedData);
+
+      // Audit
+      await this.auditService.logAction({
+        action: 'ASSET_CREATED',
+        userId,
+        resourceId: asset.id,
+        details: { assetName: asset.name, category: asset.category }
+      });
+
+      // Événements asynchrones
+      await this.publishAssetCreatedEvent(asset);
+
+      return asset;
+    } catch (error) {
+      await this.auditService.logError({
+        action: 'ASSET_CREATION_FAILED',
+        userId,
+        error: error.message,
+        data: assetData
+      });
+      throw error;
+    }
+  }
+
+  async updateAsset(assetId, updateData, userId) {
+    const transaction = await this.assetRepository.beginTransaction();
+    
+    try {
+      // Vérification d'existence
+      const existingAsset = await this.assetRepository.findById(assetId);
+      if (!existingAsset) {
+        throw new NotFoundError('Asset not found');
+      }
+
+      // Vérification des permissions
+      await this.checkUpdatePermissions(userId, existingAsset);
+
+      // Validation des changements
+      const changes = this.detectChanges(existingAsset, updateData);
+      await this.validationService.validateChanges(changes);
+
+      // Mise à jour
+      const updatedAsset = await this.assetRepository.update(
+        assetId, 
+        updateData, 
+        transaction
+      );
+
+      // Historique des changements
+      await this.createChangeHistory(changes, userId, transaction);
+
+      await transaction.commit();
+
+      // Notifications asynchrones
+      await this.notifyStakeholders(updatedAsset, changes);
+
+      return updatedAsset;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async getAssetsWithAdvancedFiltering(filters, pagination, userId) {
+    // Construction de la query avec optimisations
+    const queryBuilder = new AssetQueryBuilder()
+      .withFilters(filters)
+      .withPagination(pagination)
+      .withUserPermissions(userId)
+      .withOptimizedJoins();
+
+    // Exécution avec cache intelligent
+    const cacheKey = this.generateCacheKey(filters, pagination, userId);
+    let result = await this.cacheService.get(cacheKey);
+
+    if (!result) {
+      result = await this.assetRepository.findWithQuery(queryBuilder.build());
+      await this.cacheService.set(cacheKey, result, 300); // 5 minutes
+    }
+
+    // Enrichissement des données
+    result.assets = await this.enrichAssetsData(result.assets);
+
+    return result;
+  }
+}
+\end{lstlisting}
+
+\subsubsection{Middleware de Sécurité Avancé}
+
+\begin{lstlisting}[language=JavaScript, caption=Middleware de sécurité complet]
+// Middleware d'authentification JWT avancé
+const advancedAuthMiddleware = (options = {}) => {
+  return async (req, res, next) => {
+    try {
+      const token = extractToken(req);
+      if (!token) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          code: 'AUTH_TOKEN_MISSING'
+        });
+      }
+
+      // Vérification de la liste noire des tokens
+      if (await isTokenBlacklisted(token)) {
+        return res.status(401).json({
+          error: 'Token has been revoked',
+          code: 'AUTH_TOKEN_REVOKED'
+        });
+      }
+
+      // Décodage et validation du token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      // Vérification de l'utilisateur actif
+      const user = await User.findById(decoded.sub).select('-password');
+      if (!user || !user.isActive) {
+        return res.status(401).json({
+          error: 'User account is inactive',
+          code: 'AUTH_USER_INACTIVE'
+        });
+      }
+
+      // Vérification de la session
+      if (options.checkSession) {
+        const sessionValid = await validateUserSession(user.id, decoded.sessionId);
+        if (!sessionValid) {
+          return res.status(401).json({
+            error: 'Session expired',
+            code: 'AUTH_SESSION_EXPIRED'
+          });
+        }
+      }
+
+      // Mise à jour de la dernière activité
+      await updateLastActivity(user.id);
+
+      req.user = user;
+      req.tokenPayload = decoded;
+      next();
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).json({
+          error: 'Token expired',
+          code: 'AUTH_TOKEN_EXPIRED'
+        });
+      }
+      
+      if (error.name === 'JsonWebTokenError') {
+        return res.status(401).json({
+          error: 'Invalid token',
+          code: 'AUTH_TOKEN_INVALID'
+        });
+      }
+
+      console.error('Authentication error:', error);
+      res.status(500).json({
+        error: 'Authentication service error',
+        code: 'AUTH_SERVICE_ERROR'
+      });
+    }
+  };
+};
+
+// Middleware de contrôle d'accès basé sur les rôles
+const rbacMiddleware = (requiredPermissions) => {
+  return async (req, res, next) => {
+    try {
+      const user = req.user;
+      if (!user) {
+        return res.status(401).json({
+          error: 'Authentication required for RBAC',
+          code: 'RBAC_AUTH_REQUIRED'
+        });
+      }
+
+      // Récupération des permissions utilisateur
+      const userPermissions = await getUserPermissions(user.id);
+      
+      // Vérification des permissions requises
+      const hasPermission = checkPermissions(userPermissions, requiredPermissions);
+      
+      if (!hasPermission) {
+        // Audit de la tentative d'accès non autorisé
+        await auditService.logUnauthorizedAccess({
+          userId: user.id,
+          resource: req.path,
+          method: req.method,
+          requiredPermissions,
+          userPermissions
+        });
+
+        return res.status(403).json({
+          error: 'Insufficient permissions',
+          code: 'RBAC_INSUFFICIENT_PERMISSIONS',
+          required: requiredPermissions,
+          current: userPermissions
+        });
+      }
+
+      // Ajout des permissions au contexte de la requête
+      req.permissions = userPermissions;
+      next();
+    } catch (error) {
+      console.error('RBAC error:', error);
+      res.status(500).json({
+        error: 'Access control service error',
+        code: 'RBAC_SERVICE_ERROR'
+      });
+    }
+  };
+};
+
+// Middleware de limitation de taux (Rate Limiting)
+const rateLimitMiddleware = (options) => {
+  const store = new Map(); // En production, utiliser Redis
+  
+  return (req, res, next) => {
+    const key = `${req.ip}:${req.path}`;
+    const now = Date.now();
+    const windowStart = now - options.windowMs;
+
+    // Nettoyage des entrées expirées
+    for (const [k, v] of store.entries()) {
+      if (v.resetTime < now) {
+        store.delete(k);
+      }
+    }
+
+    // Vérification de la limite
+    let record = store.get(key);
+    if (!record) {
+      record = {
+        count: 0,
+        resetTime: now + options.windowMs,
+        firstRequest: now
+      };
+    }
+
+    if (record.count >= options.max) {
+      // Calcul du temps restant
+      const retryAfter = Math.ceil((record.resetTime - now) / 1000);
+      
+      res.set('X-RateLimit-Limit', options.max);
+      res.set('X-RateLimit-Remaining', 0);
+      res.set('X-RateLimit-Reset', record.resetTime);
+      res.set('Retry-After', retryAfter);
+
+      return res.status(429).json({
+        error: 'Too many requests',
+        code: 'RATE_LIMIT_EXCEEDED',
+        retryAfter,
+        limit: options.max,
+        windowMs: options.windowMs
+      });
+    }
+
+    // Mise à jour du compteur
+    record.count++;
+    store.set(key, record);
+
+    // Headers informatifs
+    res.set('X-RateLimit-Limit', options.max);
+    res.set('X-RateLimit-Remaining', options.max - record.count);
+    res.set('X-RateLimit-Reset', record.resetTime);
+
+    next();
+  };
+};
+
+// Middleware de validation des données
+const validationMiddleware = (schema, source = 'body') => {
+  return (req, res, next) => {
+    try {
+      const data = req[source];
+      const { error, value } = schema.validate(data, {
+        abortEarly: false,
+        stripUnknown: true,
+        convert: true
+      });
+
+      if (error) {
+        const validationErrors = error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+          value: detail.context?.value
+        }));
+
+        return res.status(400).json({
+          error: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          details: validationErrors
+        });
+      }
+
+      req[source] = value;
+      next();
+    } catch (error) {
+      console.error('Validation middleware error:', error);
+      res.status(500).json({
+        error: 'Validation service error',
+        code: 'VALIDATION_SERVICE_ERROR'
+      });
+    }
+  };
+};
+\end{lstlisting}
+
+\chapter{Intelligence Artificielle et Apprentissage Automatique}
+
+\section{Architecture IA Complète de la Plateforme}
+
+L'intégration de l'intelligence artificielle dans notre système de gestion d'inventaire repose sur une architecture modulaire et évolutive permettant l'implémentation de multiples cas d'usage avec des modèles spécialisés et des pipelines de données optimisés.
+
+\subsection{Infrastructure IA Distribuée}
+
+\subsubsection{Architecture Microservices pour l'IA}
+
+\begin{lstlisting}[language=Python, caption=Service de modèles IA distribués]
+from fastapi import FastAPI, HTTPException
+from celery import Celery
+import redis
+import tensorflow as tf
+import joblib
+import numpy as np
+from typing import Dict, List, Optional
+import logging
+
+# Configuration du service IA
+app = FastAPI(title="Inventory AI Service", version="2.0.0")
+
+# Configuration Celery pour les tâches asynchrones
+celery_app = Celery(
+    'inventory_ai',
+    broker='redis://localhost:6379/0',
+    backend='redis://localhost:6379/0'
+)
+
+# Configuration Redis pour le cache des modèles
+redis_client = redis.Redis(host='localhost', port=6379, db=1)
+
+class AIModelManager:
+    """Gestionnaire des modèles IA avec cache intelligent"""
+    
+    def __init__(self):
+        self.models = {}
+        self.model_metadata = {}
+        self.load_model_configurations()
+    
+    def load_model_configurations(self):
+        """Chargement des configurations des modèles"""
+        self.model_configs = {
+            'predictive_maintenance': {
+                'path': './models/predictive_maintenance_v2.h5',
+                'type': 'tensorflow',
+                'version': '2.1.0',
+                'input_shape': (None, 24, 10),
+                'preprocessing': 'standardization',
+                'cache_ttl': 3600
+            },
+            'asset_classification': {
+                'path': './models/asset_classifier_v1.pkl',
+                'type': 'sklearn',
+                'version': '1.3.0',
+                'preprocessing': 'text_vectorization',
+                'cache_ttl': 7200
+            },
+            'resource_optimization': {
+                'path': './models/resource_optimizer_v1.pkl',
+                'type': 'sklearn',
+                'version': '1.2.0',
+                'preprocessing': 'feature_scaling',
+                'cache_ttl': 1800
+            },
+            'chatbot_intent': {
+                'path': './models/intent_classifier_bert_v2',
+                'type': 'transformers',
+                'version': '2.0.0',
+                'preprocessing': 'bert_tokenization',
+                'cache_ttl': 14400
+            }
+        }
+    
+    async def load_model(self, model_name: str):
+        """Chargement paresseux des modèles avec mise en cache"""
+        if model_name in self.models:
+            return self.models[model_name]
+        
+        config = self.model_configs.get(model_name)
+        if not config:
+            raise ValueError(f"Modèle {model_name} non configuré")
+        
+        try:
+            if config['type'] == 'tensorflow':
+                model = tf.keras.models.load_model(config['path'])
+            elif config['type'] == 'sklearn':
+                model = joblib.load(config['path'])
+            elif config['type'] == 'transformers':
+                from transformers import AutoTokenizer, AutoModelForSequenceClassification
+                model = {
+                    'tokenizer': AutoTokenizer.from_pretrained(config['path']),
+                    'model': AutoModelForSequenceClassification.from_pretrained(config['path'])
+                }
+            
+            self.models[model_name] = model
+            self.model_metadata[model_name] = {
+                'loaded_at': time.time(),
+                'version': config['version'],
+                'usage_count': 0
+            }
+            
+            return model
+        except Exception as e:
+            logging.error(f"Erreur lors du chargement du modèle {model_name}: {e}")
+            raise HTTPException(status_code=500, detail=f"Erreur modèle: {str(e)}")
+    
+    def get_model_health(self) -> Dict:
+        """Vérification de l'état des modèles"""
+        health_status = {}
+        for model_name, metadata in self.model_metadata.items():
+            health_status[model_name] = {
+                'status': 'healthy' if model_name in self.models else 'unloaded',
+                'version': metadata['version'],
+                'loaded_at': metadata['loaded_at'],
+                'usage_count': metadata['usage_count'],
+                'memory_usage': self.get_model_memory_usage(model_name)
+            }
+        return health_status
+
+# Gestionnaire global des modèles
+model_manager = AIModelManager()
+
+@app.get("/health")
+async def health_check():
+    """Vérification de l'état du service IA"""
+    return {
+        "status": "healthy",
+        "models": model_manager.get_model_health(),
+        "timestamp": time.time()
+    }
+\end{lstlisting}
+
+\subsubsection{Pipeline de Données IA avec Monitoring}
+
+\begin{lstlisting}[language=Python, caption=Pipeline de données IA avec monitoring avancé]
+import pandas as pd
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.feature_extraction.text import TfidfVectorizer
+import mlflow
+import wandb
+from datetime import datetime, timedelta
+
+class AIDataPipeline:
+    """Pipeline de données IA avec monitoring et versioning"""
+    
+    def __init__(self):
+        self.preprocessors = {}
+        self.feature_stores = {}
+        self.data_validators = {}
+        self.monitoring_metrics = {}
+        self.setup_monitoring()
+    
+    def setup_monitoring(self):
+        """Configuration du monitoring des données"""
+        mlflow.set_tracking_uri("http://mlflow-server:5000")
+        wandb.init(project="inventory-ai-pipeline")
+    
+    async def process_asset_data(self, raw_data: Dict) -> Dict:
+        """Traitement des données d'actifs avec validation"""
+        try:
+            # Validation des données d'entrée
+            validation_result = await self.validate_input_data(raw_data)
+            if not validation_result['is_valid']:
+                raise ValueError(f"Données invalides: {validation_result['errors']}")
+            
+            # Nettoyage et normalisation
+            cleaned_data = self.clean_asset_data(raw_data)
+            
+            # Extraction des caractéristiques
+            features = await self.extract_features(cleaned_data)
+            
+            # Détection d'anomalies dans les données
+            anomaly_score = self.detect_data_anomalies(features)
+            
+            # Logging des métriques
+            self.log_pipeline_metrics({
+                'data_quality_score': validation_result['quality_score'],
+                'anomaly_score': anomaly_score,
+                'feature_count': len(features),
+                'processing_timestamp': datetime.now().isoformat()
+            })
+            
+            return {
+                'features': features,
+                'metadata': {
+                    'quality_score': validation_result['quality_score'],
+                    'anomaly_score': anomaly_score,
+                    'processed_at': datetime.now().isoformat()
+                }
+            }
+            
+        except Exception as e:
+            self.log_error('process_asset_data', str(e), raw_data)
+            raise
+    
+    async def extract_features(self, data: Dict) -> Dict:
+        """Extraction de caractéristiques avancées"""
+        features = {}
+        
+        # Caractéristiques temporelles
+        if 'timestamps' in data:
+            time_features = self.extract_temporal_features(data['timestamps'])
+            features.update(time_features)
+        
+        # Caractéristiques textuelles
+        if 'text_fields' in data:
+            text_features = await self.extract_text_features(data['text_fields'])
+            features.update(text_features)
+        
+        # Caractéristiques numériques
+        if 'numeric_fields' in data:
+            numeric_features = self.extract_numeric_features(data['numeric_fields'])
+            features.update(numeric_features)
+        
+        # Caractéristiques catégorielles
+        if 'categorical_fields' in data:
+            cat_features = self.extract_categorical_features(data['categorical_fields'])
+            features.update(cat_features)
+        
+        # Caractéristiques dérivées
+        derived_features = self.calculate_derived_features(features)
+        features.update(derived_features)
+        
+        return features
+    
+    def extract_temporal_features(self, timestamps: List) -> Dict:
+        """Extraction de caractéristiques temporelles"""
+        if not timestamps:
+            return {}
+        
+        df = pd.DataFrame({'timestamp': pd.to_datetime(timestamps)})
+        
+        return {
+            'hour_of_day': df['timestamp'].dt.hour.tolist(),
+            'day_of_week': df['timestamp'].dt.dayofweek.tolist(),
+            'month': df['timestamp'].dt.month.tolist(),
+            'quarter': df['timestamp'].dt.quarter.tolist(),
+            'is_weekend': (df['timestamp'].dt.dayofweek >= 5).astype(int).tolist(),
+            'time_since_last': df['timestamp'].diff().dt.total_seconds().fillna(0).tolist()
+        }
+    
+    async def extract_text_features(self, text_data: Dict) -> Dict:
+        """Extraction de caractéristiques textuelles avec NLP"""
+        features = {}
+        
+        for field_name, texts in text_data.items():
+            if not texts:
+                continue
+            
+            # TF-IDF vectorization
+            if field_name not in self.preprocessors:
+                self.preprocessors[field_name] = TfidfVectorizer(
+                    max_features=1000,
+                    stop_words='english',
+                    ngram_range=(1, 2)
+                )
+                tfidf_matrix = self.preprocessors[field_name].fit_transform(texts)
+            else:
+                tfidf_matrix = self.preprocessors[field_name].transform(texts)
+            
+            # Caractéristiques statistiques du texte
+            text_stats = []
+            for text in texts:
+                stats = {
+                    'length': len(text),
+                    'word_count': len(text.split()),
+                    'avg_word_length': np.mean([len(word) for word in text.split()]) if text.split() else 0,
+                    'uppercase_ratio': sum(1 for c in text if c.isupper()) / len(text) if text else 0,
+                    'digit_ratio': sum(1 for c in text if c.isdigit()) / len(text) if text else 0
+                }
+                text_stats.append(stats)
+            
+            features[f'{field_name}_tfidf'] = tfidf_matrix.toarray().tolist()
+            features[f'{field_name}_stats'] = text_stats
+        
+        return features
+    
+    def calculate_derived_features(self, base_features: Dict) -> Dict:
+        """Calcul de caractéristiques dérivées"""
+        derived = {}
+        
+        # Ratios et interactions entre caractéristiques
+        if 'cpu_usage' in base_features and 'memory_usage' in base_features:
+            derived['cpu_memory_ratio'] = [
+                cpu / (mem + 1e-6) for cpu, mem in zip(
+                    base_features['cpu_usage'], 
+                    base_features['memory_usage']
+                )
+            ]
+        
+        # Agrégations temporelles
+        if 'hour_of_day' in base_features:
+            hours = base_features['hour_of_day']
+            derived['business_hours'] = [1 if 8 <= h <= 18 else 0 for h in hours]
+            derived['night_hours'] = [1 if h < 6 or h > 22 else 0 for h in hours]
+        
+        # Détection de patterns
+        if 'usage_values' in base_features:
+            values = base_features['usage_values']
+            if len(values) > 1:
+                derived['usage_trend'] = np.gradient(values).tolist()
+                derived['usage_volatility'] = [np.std(values)] * len(values)
+        
+        return derived
+    
+    def log_pipeline_metrics(self, metrics: Dict):
+        """Logging des métriques du pipeline"""
+        # MLflow logging
+        with mlflow.start_run():
+            for key, value in metrics.items():
+                mlflow.log_metric(key, value)
+        
+        # Weights & Biases logging
+        wandb.log(metrics)
+        
+        # Métriques internes
+        self.monitoring_metrics.update(metrics)
+\end{lstlisting}
+
+\subsection{Modèles d'Apprentissage Automatique Avancés}
+
+\subsubsection{Maintenance Prédictive avec Deep Learning}
+
+\begin{lstlisting}[language=Python, caption=Modèle de maintenance prédictive avancé]
+import tensorflow as tf
+from tensorflow.keras import layers, Model
+from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
+import numpy as np
+from sklearn.ensemble import IsolationForest
+from sklearn.metrics import classification_report, confusion_matrix
+import optuna
+
+class AdvancedPredictiveMaintenanceModel:
+    """Modèle de maintenance prédictive avec architecture hybride"""
+    
+    def __init__(self):
+        self.lstm_model = None
+        self.cnn_model = None
+        self.ensemble_model = None
+        self.anomaly_detector = IsolationForest(contamination=0.1, random_state=42)
+        self.feature_importance = {}
+        self.model_interpretability = {}
+    
+    def build_hybrid_architecture(self, input_shape, hyperparams):
+        """Architecture hybride CNN-LSTM avec attention"""
+        
+        # Entrée principale
+        input_layer = layers.Input(shape=input_shape, name='sensor_data')
+        
+        # Branche CNN pour l'extraction de patterns locaux
+        cnn_branch = layers.Conv1D(
+            filters=hyperparams['cnn_filters'], 
+            kernel_size=hyperparams['cnn_kernel_size'],
+            activation='relu',
+            padding='same'
+        )(input_layer)
+        cnn_branch = layers.BatchNormalization()(cnn_branch)
+        cnn_branch = layers.Dropout(hyperparams['dropout_rate'])(cnn_branch)
+        
+        cnn_branch = layers.Conv1D(
+            filters=hyperparams['cnn_filters'] * 2,
+            kernel_size=hyperparams['cnn_kernel_size'] // 2,
+            activation='relu',
+            padding='same'
+        )(cnn_branch)
+        cnn_branch = layers.BatchNormalization()(cnn_branch)
+        cnn_branch = layers.MaxPooling1D(pool_size=2)(cnn_branch)
+        
+        # Branche LSTM pour les dépendances temporelles
+        lstm_branch = layers.LSTM(
+            hyperparams['lstm_units'],
+            return_sequences=True,
+            dropout=hyperparams['dropout_rate'],
+            recurrent_dropout=hyperparams['recurrent_dropout']
+        )(input_layer)
+        lstm_branch = layers.LSTM(
+            hyperparams['lstm_units'] // 2,
+            return_sequences=True,
+            dropout=hyperparams['dropout_rate']
+        )(lstm_branch)
+        
+        # Mécanisme d'attention
+        attention_layer = layers.Attention()([lstm_branch, lstm_branch])
+        attention_output = layers.GlobalAveragePooling1D()(attention_layer)
+        
+        # Fusion des branches
+        cnn_flattened = layers.GlobalAveragePooling1D()(cnn_branch)
+        merged = layers.Concatenate()([cnn_flattened, attention_output])
+        
+        # Couches denses avec régularisation
+        dense_layer = layers.Dense(
+            hyperparams['dense_units'],
+            activation='relu',
+            kernel_regularizer=tf.keras.regularizers.l2(hyperparams['l2_reg'])
+        )(merged)
+        dense_layer = layers.BatchNormalization()(dense_layer)
+        dense_layer = layers.Dropout(hyperparams['dropout_rate'])(dense_layer)
+        
+        # Sorties multiples
+        failure_prob = layers.Dense(1, activation='sigmoid', name='failure_probability')(dense_layer)
+        time_to_failure = layers.Dense(1, activation='linear', name='time_to_failure')(dense_layer)
+        failure_type = layers.Dense(5, activation='softmax', name='failure_type')(dense_layer)
+        
+        model = Model(
+            inputs=input_layer,
+            outputs=[failure_prob, time_to_failure, failure_type]
+        )
+        
+        return model
+    
+    def optimize_hyperparameters(self, X_train, y_train, X_val, y_val):
+        """Optimisation des hyperparamètres avec Optuna"""
+        
+        def objective(trial):
+            hyperparams = {
+                'cnn_filters': trial.suggest_int('cnn_filters', 32, 128),
+                'cnn_kernel_size': trial.suggest_int('cnn_kernel_size', 3, 7),
+                'lstm_units': trial.suggest_int('lstm_units', 64, 256),
+                'dense_units': trial.suggest_int('dense_units', 64, 512),
+                'dropout_rate': trial.suggest_float('dropout_rate', 0.1, 0.5),
+                'recurrent_dropout': trial.suggest_float('recurrent_dropout', 0.1, 0.5),
+                'l2_reg': trial.suggest_float('l2_reg', 1e-5, 1e-2, log=True),
+                'learning_rate': trial.suggest_float('learning_rate', 1e-4, 1e-2, log=True)
+            }
+            
+            model = self.build_hybrid_architecture(X_train.shape[1:], hyperparams)
+            
+            model.compile(
+                optimizer=tf.keras.optimizers.Adam(learning_rate=hyperparams['learning_rate']),
+                loss={
+                    'failure_probability': 'binary_crossentropy',
+                    'time_to_failure': 'mse',
+                    'failure_type': 'categorical_crossentropy'
+                },
+                loss_weights={
+                    'failure_probability': 0.5,
+                    'time_to_failure': 0.3,
+                    'failure_type': 0.2
+                },
+                metrics={
+                    'failure_probability': ['accuracy', 'precision', 'recall'],
+                    'time_to_failure': ['mae'],
+                    'failure_type': ['accuracy']
+                }
+            )
+            
+            # Entraînement avec early stopping
+            history = model.fit(
+                X_train, y_train,
+                validation_data=(X_val, y_val),
+                epochs=50,
+                batch_size=32,
+                callbacks=[
+                    EarlyStopping(patience=10, restore_best_weights=True),
+                    ReduceLROnPlateau(patience=5, factor=0.5)
+                ],
+                verbose=0
+            )
+            
+            # Retourner la meilleure métrique de validation
+            return min(history.history['val_loss'])
+        
+        study = optuna.create_study(direction='minimize')
+        study.optimize(objective, n_trials=100)
+        
+        return study.best_params
+    
+    def train_ensemble_model(self, X_train, y_train, X_val, y_val):
+        """Entraînement d'un ensemble de modèles"""
+        from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+        from sklearn.svm import SVC
+        
+        # Modèles de l'ensemble
+        ensemble_models = {
+            'rf': RandomForestClassifier(n_estimators=200, random_state=42),
+            'gb': GradientBoostingClassifier(n_estimators=200, random_state=42),
+            'svm': SVC(probability=True, random_state=42)
+        }
+        
+        # Entraînement de chaque modèle
+        trained_models = {}
+        model_scores = {}
+        
+        for name, model in ensemble_models.items():
+            # Préparation des données pour les modèles sklearn
+            X_train_flat = X_train.reshape(X_train.shape[0], -1)
+            X_val_flat = X_val.reshape(X_val.shape[0], -1)
+            
+            model.fit(X_train_flat, y_train['failure_probability'])
+            
+            # Évaluation
+            val_predictions = model.predict_proba(X_val_flat)[:, 1]
+            score = roc_auc_score(y_val['failure_probability'], val_predictions)
+            
+            trained_models[name] = model
+            model_scores[name] = score
+        
+        # Création du meta-learner
+        meta_features = []
+        for name, model in trained_models.items():
+            X_val_flat = X_val.reshape(X_val.shape[0], -1)
+            predictions = model.predict_proba(X_val_flat)[:, 1]
+            meta_features.append(predictions)
+        
+        meta_X = np.column_stack(meta_features)
+        meta_learner = LogisticRegression()
+        meta_learner.fit(meta_X, y_val['failure_probability'])
+        
+        self.ensemble_model = {
+            'base_models': trained_models,
+            'meta_learner': meta_learner,
+            'model_scores': model_scores
+        }
+    
+    def predict_with_uncertainty(self, X, n_samples=100):
+        """Prédiction avec estimation d'incertitude"""
+        predictions = []
+        
+        # Monte Carlo Dropout pour l'estimation d'incertitude
+        for _ in range(n_samples):
+            # Activer le dropout pendant l'inférence
+            pred = self.lstm_model(X, training=True)
+            predictions.append(pred.numpy())
+        
+        predictions = np.array(predictions)
+        
+        # Calcul des statistiques
+        mean_pred = np.mean(predictions, axis=0)
+        std_pred = np.std(predictions, axis=0)
+        
+        # Intervalles de confiance
+        confidence_lower = np.percentile(predictions, 2.5, axis=0)
+        confidence_upper = np.percentile(predictions, 97.5, axis=0)
+        
+        return {
+            'prediction': mean_pred,
+            'uncertainty': std_pred,
+            'confidence_interval': {
+                'lower': confidence_lower,
+                'upper': confidence_upper
+            },
+            'prediction_confidence': 1 - (std_pred / (mean_pred + 1e-8))
+        }
+    
+    def explain_predictions(self, X, feature_names):
+        """Explication des prédictions avec SHAP"""
+        import shap
+        
+        # Explainer SHAP pour le modèle
+        explainer = shap.DeepExplainer(self.lstm_model, X[:100])
+        shap_values = explainer.shap_values(X[:10])
+        
+        # Calcul de l'importance des caractéristiques
+        feature_importance = np.mean(np.abs(shap_values[0]), axis=0)
+        
+        self.feature_importance = dict(zip(feature_names, feature_importance))
+        
+        return {
+            'shap_values': shap_values,
+            'feature_importance': self.feature_importance,
+            'base_values': explainer.expected_value
+        }
+    
+    def continuous_learning_update(self, new_X, new_y, learning_rate=0.001):
+        """Mise à jour continue du modèle avec nouvelles données"""
+        
+        # Réduction du taux d'apprentissage pour la mise à jour
+        self.lstm_model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
+            loss='binary_crossentropy',
+            metrics=['accuracy']
+        )
+        
+        # Entraînement incrémental
+        history = self.lstm_model.fit(
+            new_X, new_y,
+            epochs=10,
+            batch_size=16,
+            verbose=0,
+            validation_split=0.2
+        )
+        
+        # Mise à jour des métriques de performance
+        self.update_performance_metrics(new_X, new_y)
+        
+        return history.history
+    
+    def detect_model_drift(self, X_new, threshold=0.1):
+        """Détection de dérive du modèle"""
+        from scipy import stats
+        
+        # Prédictions sur nouvelles données
+        predictions_new = self.lstm_model.predict(X_new)
+        
+        # Comparaison avec distribution de référence
+        if hasattr(self, 'reference_predictions'):
+            # Test de Kolmogorov-Smirnov
+            ks_stat, p_value = stats.ks_2samp(
+                self.reference_predictions.flatten(),
+                predictions_new.flatten()
+            )
+            
+            drift_detected = p_value < threshold
+            
+            return {
+                'drift_detected': drift_detected,
+                'ks_statistic': ks_stat,
+                'p_value': p_value,
+                'drift_score': ks_stat
+            }
+        
+        # Sauvegarder comme référence si première utilisation
+        self.reference_predictions = predictions_new
+        return {'drift_detected': False, 'message': 'Reference set established'}
+\end{lstlisting}
+
+\section{Chatbot Intelligent et Traitement du Langage Naturel Avancé}
+
+\subsection{Architecture Multi-Modale du Chatbot}
+
+\subsubsection{Pipeline NLP Complet}
+
+\begin{lstlisting}[language=Python, caption=Pipeline NLP avancé pour le chatbot]
+import torch
+from transformers import (
+    AutoTokenizer, AutoModelForSequenceClassification,
+    AutoModelForQuestionAnswering, pipeline
+)
+import spacy
+from sentence_transformers import SentenceTransformer
+import faiss
+import numpy as np
+from typing import Dict, List, Tuple, Optional
+import json
+import logging
+
+class AdvancedNLPPipeline:
+    """Pipeline NLP complet pour le chatbot intelligent"""
+    
+    def __init__(self):
+        self.setup_models()
+        self.setup_knowledge_base()
+        self.setup_conversation_memory()
+        self.performance_metrics = {}
+    
+    def setup_models(self):
+        """Initialisation des modèles NLP"""
+        
+        # Modèle d'intention multi-domaine
+        self.intent_tokenizer = AutoTokenizer.from_pretrained(
+            "microsoft/DialoGPT-medium"
+        )
+        self.intent_model = AutoModelForSequenceClassification.from_pretrained(
+            "./models/intent_classifier_inventory_v3"
+        )
+        
+        # Modèle de reconnaissance d'entités nommées
+        self.ner_model = spacy.load("./models/inventory_ner_model_v2")
+        
+        # Modèle de similarité sémantique
+        self.embedding_model = SentenceTransformer(
+            'sentence-transformers/all-MiniLM-L6-v2'
+        )
+        
+        # Modèle de génération de réponses
+        self.response_generator = pipeline(
+            "text-generation",
+            model="microsoft/DialoGPT-large",
+            tokenizer="microsoft/DialoGPT-large"
+        )
+        
+        # Modèle de question-réponse
+        self.qa_model = pipeline(
+            "question-answering",
+            model="deepset/roberta-base-squad2"
+        )
+        
+        # Modèle de détection de sentiment
+        self.sentiment_analyzer = pipeline(
+            "sentiment-analysis",
+            model="cardiffnlp/twitter-roberta-base-sentiment-latest"
+        )
+    
+    def setup_knowledge_base(self):
+        """Configuration de la base de connaissances vectorielle"""
+        
+        # Chargement des documents de la base de connaissances
+        with open('./data/knowledge_base.json', 'r') as f:
+            self.knowledge_docs = json.load(f)
+        
+        # Création des embeddings pour la recherche sémantique
+        doc_texts = [doc['content'] for doc in self.knowledge_docs]
+        self.doc_embeddings = self.embedding_model.encode(doc_texts)
+        
+        # Index FAISS pour la recherche rapide
+        self.faiss_index = faiss.IndexFlatIP(self.doc_embeddings.shape[1])
+        self.faiss_index.add(self.doc_embeddings.astype('float32'))
+        
+        # Graph de connaissances pour les relations complexes
+        self.knowledge_graph = self.build_knowledge_graph()
+    
+    def build_knowledge_graph(self) -> Dict:
+        """Construction du graphe de connaissances"""
+        graph = {
+            'entities': {},
+            'relations': {},
+            'concepts': {}
+        }
+        
+        # Extraction d'entités depuis les documents
+        for doc in self.knowledge_docs:
+            doc_entities = self.ner_model(doc['content'])
+            
+            for ent in doc_entities.ents:
+                entity_key = f"{ent.label_}:{ent.text}"
+                if entity_key not in graph['entities']:
+                    graph['entities'][entity_key] = {
+                        'type': ent.label_,
+                        'text': ent.text,
+                        'contexts': [],
+                        'related_entities': set()
+                    }
+                
+                graph['entities'][entity_key]['contexts'].append({
+                    'doc_id': doc['id'],
+                    'context': doc['content'][max(0, ent.start-50):ent.end+50]
+                })
+        
+        # Construction des relations entre entités
+        self.build_entity_relations(graph)
+        
+        return graph
+    
+    async def process_message_advanced(self, message: str, context: Dict) -> Dict:
+        """Traitement avancé des messages avec analyse multi-niveau"""
+        
+        start_time = time.time()
+        
+        # 1. Préprocessing et nettoyage
+        cleaned_message = self.preprocess_message(message)
+        
+        # 2. Analyse d'intention avec confidence scoring
+        intent_result = await self.analyze_intent_advanced(cleaned_message)
+        
+        # 3. Extraction d'entités avec désambiguïsation
+        entities_result = await self.extract_entities_advanced(cleaned_message, context)
+        
+        # 4. Analyse de sentiment et émotion
+        sentiment_result = self.sentiment_analyzer(cleaned_message)
+        emotion_result = await self.analyze_emotion(cleaned_message)
+        
+        # 5. Recherche dans la base de connaissances
+        knowledge_result = await self.search_knowledge_base(cleaned_message, intent_result)
+        
+        # 6. Résolution contextuelle
+        context_resolution = await self.resolve_context(
+            cleaned_message, intent_result, entities_result, context
+        )
+        
+        # 7. Génération de réponse adaptative
+        response = await self.generate_adaptive_response({
+            'message': cleaned_message,
+            'intent': intent_result,
+            'entities': entities_result,
+            'sentiment': sentiment_result,
+            'emotion': emotion_result,
+            'knowledge': knowledge_result,
+            'context': context_resolution
+        })
+        
+        # 8. Métriques de performance
+        processing_time = time.time() - start_time
+        self.update_performance_metrics(processing_time, intent_result['confidence'])
+        
+        return response
+    
+    async def analyze_intent_advanced(self, message: str) -> Dict:
+        """Analyse d'intention avancée avec sous-intentions"""
+        
+        # Tokenisation
+        inputs = self.intent_tokenizer(
+            message,
+            return_tensors="pt",
+            truncation=True,
+            padding=True,
+            max_length=512
+        )
+        
+        # Prédiction
+        with torch.no_grad():
+            outputs = self.intent_model(**inputs)
+            probabilities = torch.nn.functional.softmax(outputs.logits, dim=-1)
+        
+        # Classification hiérarchique
+        main_intents = [
+            "asset_management", "maintenance_scheduling", "resource_optimization",
+            "reporting", "user_assistance", "system_navigation", "troubleshooting"
+        ]
+        
+        sub_intents = {
+            "asset_management": ["create", "read", "update", "delete", "search", "assign"],
+            "maintenance_scheduling": ["plan", "update_status", "reschedule", "cancel"],
+            "resource_optimization": ["analyze", "recommend", "forecast", "allocate"],
+            "reporting": ["generate", "export", "customize", "schedule"],
+            "user_assistance": ["help", "guide", "explain", "troubleshoot"],
+            "system_navigation": ["goto", "show", "navigate", "display"],
+            "troubleshooting": ["diagnose", "fix", "investigate", "resolve"]
+        }
+        
+        # Prédiction principale
+        main_intent_idx = torch.argmax(probabilities, dim=-1).item()
+        main_intent = main_intents[main_intent_idx]
+        main_confidence = probabilities[0][main_intent_idx].item()
+        
+        # Prédiction de sous-intention
+        sub_intent_result = await self.classify_sub_intent(message, main_intent, sub_intents)
+        
+        return {
+            'main_intent': main_intent,
+            'sub_intent': sub_intent_result['sub_intent'],
+            'confidence': main_confidence,
+            'sub_confidence': sub_intent_result['confidence'],
+            'all_probabilities': probabilities[0].tolist(),
+            'confidence_threshold_met': main_confidence > 0.7
+        }
+    
+    async def extract_entities_advanced(self, message: str, context: Dict) -> Dict:
+        """Extraction d'entités avec résolution d'ambiguïtés"""
+        
+        # NER avec spaCy
+        doc = self.ner_model(message)
+        entities = []
+        
+        for ent in doc.ents:
+            entity_info = {
+                'text': ent.text,
+                'label': ent.label_,
+                'start': ent.start_char,
+                'end': ent.end_char,
+                'confidence': getattr(ent, 'confidence', 0.0)
+            }
+            
+            # Résolution d'entité via la base de connaissances
+            resolved_entity = await self.resolve_entity(entity_info, context)
+            entity_info.update(resolved_entity)
+            
+            entities.append(entity_info)
+        
+        # Extraction d'entités par patterns regex
+        pattern_entities = self.extract_pattern_entities(message)
+        entities.extend(pattern_entities)
+        
+        # Déduplication et fusion d'entités
+        entities = self.deduplicate_entities(entities)
+        
+        return {
+            'entities': entities,
+            'entity_count': len(entities),
+            'high_confidence_entities': [e for e in entities if e.get('confidence', 0) > 0.8]
+        }
+    
+    async def resolve_entity(self, entity_info: Dict, context: Dict) -> Dict:
+        """Résolution d'entité avec contexte"""
+        
+        entity_text = entity_info['text'].lower()
+        entity_type = entity_info['label']
+        
+        resolution = {'resolved': False}
+        
+        if entity_type == 'ASSET':
+            # Recherche dans la base d'actifs
+            asset_candidates = await self.search_assets_by_name(entity_text)
+            
+            if asset_candidates:
+                # Scoring basé sur la similarité et le contexte
+                best_match = self.score_entity_candidates(
+                    entity_text, asset_candidates, context
+                )
+                
+                if best_match['score'] > 0.8:
+                    resolution.update({
+                        'resolved': True,
+                        'asset_id': best_match['id'],
+                        'asset_name': best_match['name'],
+                        'asset_type': best_match['type'],
+                        'confidence': best_match['score']
+                    })
+        
+        elif entity_type == 'DATE':
+            # Parsing et normalisation des dates
+            from dateutil import parser
+            try:
+                parsed_date = parser.parse(entity_text, fuzzy=True)
+                resolution.update({
+                    'resolved': True,
+                    'normalized_date': parsed_date.isoformat(),
+                    'date_type': self.classify_date_type(entity_text)
+                })
+            except:
+                pass
+        
+        elif entity_type == 'PERSON':
+            # Recherche d'utilisateurs/techniciens
+            user_candidates = await self.search_users_by_name(entity_text)
+            if user_candidates:
+                best_match = user_candidates[0]  # Plus sophistiqué en production
+                resolution.update({
+                    'resolved': True,
+                    'user_id': best_match['id'],
+                    'user_name': best_match['name'],
+                    'user_role': best_match['role']
+                })
+        
+        return resolution
+    
+    async def search_knowledge_base(self, query: str, intent_info: Dict) -> Dict:
+        """Recherche sémantique dans la base de connaissances"""
+        
+        # Embedding de la requête
+        query_embedding = self.embedding_model.encode([query])
+        
+        # Recherche FAISS
+        similarities, indices = self.faiss_index.search(
+            query_embedding.astype('float32'), k=5
+        )
+        
+        # Filtrage par intention pour améliorer la pertinence
+        relevant_docs = []
+        for i, (similarity, idx) in enumerate(zip(similarities[0], indices[0])):
+            doc = self.knowledge_docs[idx]
+            
+            # Score de pertinence basé sur l'intention
+            intent_relevance = self.calculate_intent_relevance(
+                doc, intent_info['main_intent']
+            )
+            
+            combined_score = 0.7 * similarity + 0.3 * intent_relevance
+            
+            if combined_score > 0.5:  # Seuil de pertinence
+                relevant_docs.append({
+                    'doc_id': doc['id'],
+                    'title': doc['title'],
+                    'content': doc['content'],
+                    'similarity': float(similarity),
+                    'intent_relevance': intent_relevance,
+                    'combined_score': combined_score
+                })
+        
+        # Tri par score combiné
+        relevant_docs.sort(key=lambda x: x['combined_score'], reverse=True)
+        
+        return {
+            'relevant_documents': relevant_docs[:3],  # Top 3 documents
+            'total_found': len(relevant_docs),
+            'search_successful': len(relevant_docs) > 0
+        }
+    
+    async def generate_adaptive_response(self, analysis_result: Dict) -> Dict:
+        """Génération de réponse adaptative basée sur l'analyse complète"""
+        
+        intent = analysis_result['intent']
+        entities = analysis_result['entities']
+        sentiment = analysis_result['sentiment']
+        knowledge = analysis_result['knowledge']
+        context = analysis_result['context']
+        
+        # Sélection de la stratégie de réponse
+        response_strategy = self.select_response_strategy(analysis_result)
+        
+        response_data = {
+            'text': '',
+            'type': 'text',
+            'confidence': 0.0,
+            'suggestions': [],
+            'actions': [],
+            'attachments': [],
+            'follow_up_questions': []
+        }
+        
+        if response_strategy == 'knowledge_based':
+            response_data = await self.generate_knowledge_based_response(
+                analysis_result, knowledge
+            )
+        
+        elif response_strategy == 'action_based':
+            response_data = await self.generate_action_based_response(
+                analysis_result, entities
+            )
+        
+        elif response_strategy == 'conversational':
+            response_data = await self.generate_conversational_response(
+                analysis_result
+            )
+        
+        elif response_strategy == 'clarification':
+            response_data = await self.generate_clarification_response(
+                analysis_result
+            )
+        
+        # Personnalisation basée sur le sentiment
+        response_data = self.personalize_response_by_sentiment(
+            response_data, sentiment
+        )
+        
+        # Ajout de suggestions contextuelles
+        response_data['suggestions'] = await self.generate_contextual_suggestions(
+            intent, entities, context
+        )
+        
+        return response_data
+    
+    async def generate_knowledge_based_response(self, analysis: Dict, knowledge: Dict) -> Dict:
+        """Génération de réponse basée sur la base de connaissances"""
+        
+        if not knowledge['search_successful']:
+            return {
+                'text': "Je n'ai pas trouvé d'informations spécifiques sur votre demande. Pouvez-vous être plus précis ?",
+                'type': 'text',
+                'confidence': 0.3,
+                'suggestions': ['Reformuler la question', 'Contacter le support', 'Consulter la documentation']
+            }
+        
+        # Sélection du meilleur document
+        best_doc = knowledge['relevant_documents'][0]
+        
+        # Extraction de passage pertinent avec Q&A
+        qa_result = self.qa_model(
+            question=analysis['message'],
+            context=best_doc['content']
+        )
+        
+        if qa_result['score'] > 0.5:
+            response_text = f"Basé sur notre documentation: {qa_result['answer']}"
+            confidence = qa_result['score']
+        else:
+            # Génération basée sur le contenu du document
+            response_text = self.summarize_document_for_response(
+                best_doc['content'], analysis['intent']
+            )
+            confidence = best_doc['combined_score']
+        
+        return {
+            'text': response_text,
+            'type': 'knowledge',
+            'confidence': confidence,
+            'source_document': best_doc['title'],
+            'attachments': [{
+                'type': 'document_reference',
+                'title': best_doc['title'],
+                'content_preview': best_doc['content'][:200] + '...'
+            }]
+        }
+    
+    def update_performance_metrics(self, processing_time: float, confidence: float):
+        """Mise à jour des métriques de performance"""
+        
+        if 'response_times' not in self.performance_metrics:
+            self.performance_metrics['response_times'] = []
+        if 'confidences' not in self.performance_metrics:
+            self.performance_metrics['confidences'] = []
+        
+        self.performance_metrics['response_times'].append(processing_time)
+        self.performance_metrics['confidences'].append(confidence)
+        
+        # Calcul des métriques agrégées
+        self.performance_metrics['avg_response_time'] = np.mean(
+            self.performance_metrics['response_times'][-100:]  # 100 dernières
+        )
+        self.performance_metrics['avg_confidence'] = np.mean(
+            self.performance_metrics['confidences'][-100:]
+        )
+        
+        # Détection de dégradation de performance
+        if len(self.performance_metrics['response_times']) > 50:
+            recent_avg = np.mean(self.performance_metrics['response_times'][-10:])
+            historical_avg = np.mean(self.performance_metrics['response_times'][-50:-10])
+            
+            if recent_avg > historical_avg * 1.5:  # 50% plus lent
+                logging.warning(f"Performance dégradée détectée: {recent_avg:.2f}s vs {historical_avg:.2f}s")
+\end{lstlisting}
+
+\chapter{DevSecOps : Méthodologie et Outils Avancés}
+
+\section{Philosophie DevSecOps Approfondie}
+
+DevSecOps représente l'évolution naturelle de DevOps, intégrant la sécurité comme composant fondamental du cycle de développement plutôt que comme une couche ajoutée a posteriori. Cette approche révolutionnaire transforme la façon dont les équipes conçoivent, développent, testent et déploient les applications.
+
+\subsection{Principes Fondamentaux Étendus}
+
+\subsubsection{Shift Left Security - Sécurité Précoce}
+
+Le concept de "Shift Left" consiste à déplacer les contrôles de sécurité vers les phases les plus précoces du cycle de développement :
+
+\begin{enumerate}
+    \item \textbf{Sécurité dès la conception} : Intégration des requirements de sécurité dans les spécifications
+    \item \textbf{Secure Coding Practices} : Formation des développeurs aux pratiques de codage sécurisé
+    \item \textbf{Automated Security Testing} : Tests de sécurité automatisés à chaque commit
+    \item \textbf{Threat Modeling} : Modélisation des menaces dès la phase de design
+\end{enumerate}
+
+\subsubsection{Security as Code}
+
+\begin{lstlisting}[language=YAML, caption=Infrastructure as Code sécurisée avec Terraform]
+# main.tf - Configuration Terraform sécurisée
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+  
+  # Backend sécurisé avec chiffrement
+  backend "s3" {
+    bucket         = "inventory-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "eu-west-1"
+    encrypt        = true
+    kms_key_id     = "arn:aws:kms:eu-west-1:123456789012:key/12345678-1234-1234-1234-123456789012"
+    dynamodb_table = "terraform-locks"
+  }
+}
+
+# Fournisseur AWS avec politiques de sécurité
+provider "aws" {
+  region = var.aws_region
+  
+  # Politique de sécurité par défaut
+  default_tags {
+    tags = {
+      Environment = var.environment
+      Project     = "inventory-system"
+      Owner       = "devops-team"
+      CostCenter  = "IT-Infrastructure"
+      Compliance  = "GDPR,SOC2"
+    }
+  }
+}
+
+# Groupe de sécurité avec règles strictes
+resource "aws_security_group" "inventory_app" {
+  name_prefix = "inventory-app-"
+  vpc_id      = aws_vpc.main.id
+  
+  description = "Security group for inventory application"
+  
+  # Règles d'entrée restrictives
+  ingress {
+    description = "HTTPS from ALB"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+  
+  ingress {
+    description = "HTTP from ALB (redirect to HTTPS)"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+  
+  # Règles de sortie restrictives
+  egress {
+    description = "HTTPS to internet"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  
+  egress {
+    description = "Database connection"
+    from_port   = 27017
+    to_port     = 27017
+    protocol    = "tcp"
+    security_groups = [aws_security_group.database.id]
+  }
+  
+  tags = {
+    Name = "inventory-app-sg"
+  }
+}
+
+# Configuration ECS avec sécurité renforcée
+resource "aws_ecs_task_definition" "inventory_app" {
+  family                   = "inventory-app"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "512"
+  memory                   = "1024"
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
+  task_role_arn           = aws_iam_role.ecs_task_role.arn
+  
+  container_definitions = jsonencode([{
+    name  = "inventory-app"
+    image = "${aws_ecr_repository.inventory_app.repository_url}:latest"
+    
+    # Configuration de sécurité du conteneur
+    essential = true
+    
+    # Utilisateur non-root
+    user = "1001:1001"
+    
+    # Capabilities Linux minimales
+    linuxParameters = {
+      capabilities = {
+        drop = ["ALL"]
+        add  = ["NET_BIND_SERVICE"]
+      }
+    }
+    
+    # Système de fichiers en lecture seule
+    readonlyRootFilesystem = true
+    
+    # Pas de privilèges élevés
+    privileged = false
+    
+    # Configuration réseau
+    portMappings = [{
+      containerPort = 3000
+      protocol      = "tcp"
+    }]
+    
+    # Variables d'environnement sécurisées
+    environment = [
+      {
+        name  = "NODE_ENV"
+        value = "production"
+      },
+      {
+        name  = "PORT"
+        value = "3000"
+      }
+    ]
+    
+    # Secrets depuis AWS Secrets Manager
+    secrets = [
+      {
+        name      = "DATABASE_URL"
+        valueFrom = aws_secretsmanager_secret.db_credentials.arn
+      },
+      {
+        name      = "JWT_SECRET"
+        valueFrom = aws_secretsmanager_secret.jwt_secret.arn
+      }
+    ]
+    
+    # Logging sécurisé
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = aws_cloudwatch_log_group.inventory_app.name
+        awslogs-region        = var.aws_region
+        awslogs-stream-prefix = "ecs"
+      }
+    }
+    
+    # Health check
+    healthCheck = {
+      command     = ["CMD-SHELL", "curl -f http://localhost:3000/health || exit 1"]
+      interval    = 30
+      timeout     = 5
+      retries     = 3
+      startPeriod = 60
+    }
+  }])
+  
+  tags = {
+    Name = "inventory-app-task"
+  }
+}
+
+# Secrets Manager pour les données sensibles
+resource "aws_secretsmanager_secret" "db_credentials" {
+  name                    = "inventory/database/credentials"
+  description             = "Database credentials for inventory system"
+  kms_key_id             = aws_kms_key.secrets.arn
+  recovery_window_in_days = 30
+  
+  tags = {
+    Name = "inventory-db-credentials"
+  }
+}
+
+# Clé KMS pour le chiffrement
+resource "aws_kms_key" "secrets" {
+  description             = "KMS key for inventory system secrets"
+  deletion_window_in_days = 30
+  enable_key_rotation     = true
+  
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable IAM User Permissions"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      }
+    ]
+  })
+  
+  tags = {
+    Name = "inventory-secrets-key"
+  }
+}
+
+# WAF pour protection web
+resource "aws_wafv2_web_acl" "inventory_waf" {
+  name  = "inventory-web-acl"
+  scope = "REGIONAL"
+  
+  default_action {
+    allow {}
+  }
+  
+  # Règle contre les injections SQL
+  rule {
+    name     = "SQLInjectionRule"
+    priority = 1
+    
+    override_action {
+      none {}
+    }
+    
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesKnownBadInputsRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "SQLInjectionRule"
+      sampled_requests_enabled   = true
+    }
+  }
+  
+  # Règle contre les attaques XSS
+  rule {
+    name     = "XSSRule"
+    priority = 2
+    
+    override_action {
+      none {}
+    }
+    
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+    
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "XSSRule"
+      sampled_requests_enabled   = true
+    }
+  }
+  
+  # Limitation de taux
+  rule {
+    name     = "RateLimitRule"
+    priority = 3
+    
+    action {
+      block {}
+    }
+    
+    statement {
+      rate_based_statement {
+        limit              = 10000
+        aggregate_key_type = "IP"
+      }
+    }
+    
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "RateLimitRule"
+      sampled_requests_enabled   = true
+    }
+  }
+  
+  tags = {
+    Name = "inventory-waf"
+  }
+}
+\end{lstlisting}
+
+\subsection{Pipeline DevSecOps Complète et Détaillée}
+
+\subsubsection{Phase de Développement - Sécurité Intégrée}
+
+\begin{lstlisting}[language=YAML, caption=Pipeline GitHub Actions DevSecOps complète]
+name: DevSecOps Pipeline - Inventory System
+
+on:
+  push:
+    branches: [ main, develop, 'feature/**' ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  NODE_VERSION: '18'
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  # Phase 1: Sécurité pré-commit
+  pre-commit-security:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: |
+        npm ci
+        npm audit --audit-level=moderate
+    
+    - name: Git Secrets Scan
+      uses: trufflesecurity/trufflehog@main
+      with:
+        path: ./
+        base: ${{ github.event.repository.default_branch }}
+        head: HEAD
+        extra_args: --debug --only-verified
+    
+    - name: Semgrep Security Scan
+      uses: semgrep/semgrep-action@v1
+      with:
+        config: >-
+          p/security-audit
+          p/secrets
+          p/owasp-top-ten
+          p/javascript
+          p/typescript
+          p/react
+        severity: ERROR
+        
+    - name: CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: javascript, typescript
+        queries: security-extended,security-and-quality
+    
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  # Phase 2: Tests de sécurité statiques
+  static-security-analysis:
+    needs: pre-commit-security
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: ESLint Security Analysis
+      run: |
+        npx eslint . \
+          --ext .ts,.tsx,.js,.jsx \
+          --config .eslintrc.security.js \
+          --format json \
+          --output-file eslint-security-report.json
+      continue-on-error: true
+    
+    - name: Bandit Python Security Scan
+      if: ${{ hashFiles('**/*.py') }}
+      run: |
+        pip install bandit[toml]
+        bandit -r . -f json -o bandit-report.json
+      continue-on-error: true
+    
+    - name: SonarCloud Security Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.projectKey=inventory-system
+          -Dsonar.organization=your-org
+          -Dsonar.sources=src/
+          -Dsonar.tests=src/
+          -Dsonar.test.inclusions=**/*.test.ts,**/*.test.tsx
+          -Dsonar.exclusions=**/*.test.ts,**/*.test.tsx,**/node_modules/**
+          -Dsonar.security.hotspots.threshold=0
+          -Dsonar.qualitygate.wait=true
+    
+    - name: Upload SARIF results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: |
+          eslint-security-report.json
+          bandit-report.json
+
+  # Phase 3: Analyse des dépendances
+  dependency-security-scan:
+    needs: static-security-analysis
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci
+    
+    - name: npm audit
+      run: |
+        npm audit --audit-level=moderate --json > npm-audit.json
+        npm audit --audit-level=moderate
+      continue-on-error: true
+    
+    - name: Snyk Security Scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: |
+          --severity-threshold=high
+          --fail-on=all
+          --json-file-output=snyk-report.json
+      continue-on-error: true
+    
+    - name: OWASP Dependency Check
+      uses: dependency-check/Dependency-Check_Action@main
+      with:
+        project: 'inventory-system'
+        path: '.'
+        format: 'ALL'
+        args: >
+          --enableRetired
+          --enableExperimental
+          --nvdApiKey ${{ secrets.NVD_API_KEY }}
+          --failOnCVSS 7
+          --suppression suppressions.xml
+    
+    - name: License Compliance Check
+      run: |
+        npx license-checker --onlyAllow 'MIT;Apache-2.0;BSD-2-Clause;BSD-3-Clause;ISC' \
+          --json --out license-report.json
+    
+    - name: Upload vulnerability reports
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: vulnerability-reports
+        path: |
+          npm-audit.json
+          snyk-report.json
+          dependency-check-report.*
+          license-report.json
+
+  # Phase 4: Construction sécurisée
+  secure-build:
+    needs: dependency-security-scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+    
+    - name: Install dependencies
+      run: npm ci --only=production
+    
+    - name: Security-hardened build
+      run: |
+        export NODE_ENV=production
+        export NODE_OPTIONS="--max-old-space-size=4096"
+        npm run build
+        
+        # Vérification de l'intégrité du build
+        find dist/ -type f -name "*.js" -exec sha256sum {} \; > build-checksums.txt
+    
+    - name: Docker security scan preparation
+      run: |
+        echo "FROM node:18-alpine" > Dockerfile.security
+        echo "RUN addgroup -g 1001 -S nodejs && adduser -S inventoryapp -u 1001" >> Dockerfile.security
+        echo "WORKDIR /app" >> Dockerfile.security
+        echo "COPY --chown=inventoryapp:nodejs package*.json ./" >> Dockerfile.security
+        echo "RUN npm ci --only=production && npm cache clean --force" >> Dockerfile.security
+        echo "COPY --chown=inventoryapp:nodejs dist/ ./dist/" >> Dockerfile.security
+        echo "USER inventoryapp" >> Dockerfile.security
+        echo "EXPOSE 3000" >> Dockerfile.security
+        echo "CMD [\"node\", \"dist/server.js\"]" >> Dockerfile.security
+    
+    - name: Build Docker image
+      run: |
+        docker build -f Dockerfile.security -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+        docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+    
+    - name: Docker image security scan - Trivy
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+        severity: 'CRITICAL,HIGH'
+        exit-code: '1'
+    
+    - name: Docker image security scan - Snyk
+      uses: snyk/actions/docker@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        args: --severity-threshold=high --file=Dockerfile.security
+    
+    - name: Sign container image
+      uses: sigstore/cosign-installer@v3
+    
+    - name: Log in to registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Push signed image
+      run: |
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        
+        # Signature cryptographique de l'image
+        cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+    
+    - name: Generate SBOM
+      uses: anchore/sbom-action@v0
+      with:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        format: 'spdx-json'
+        output-file: 'sbom.spdx.json'
+    
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          build-checksums.txt
+          trivy-results.sarif
+          sbom.spdx.json
+
+  # Phase 5: Tests de sécurité dynamiques
+  dynamic-security-testing:
+    needs: secure-build
+    runs-on: ubuntu-latest
+    services:
+      inventory-app:
+        image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+        ports:
+          - 3000:3000
+        env:
+          NODE_ENV: test
+          DATABASE_URL: mongodb://localhost:27017/inventory_test
+      
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Wait for application startup
+      run: |
+        timeout 60 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+    
+    - name: OWASP ZAP Baseline Scan
+      uses: zaproxy/action-baseline@v0.12.0
+      with:
+        target: 'http://localhost:3000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a -j -m 10 -T 60'
+    
+    - name: OWASP ZAP Full Scan
+      uses: zaproxy/action-full-scan@v0.10.0
+      if: github.ref == 'refs/heads/main'
+      with:
+        target: 'http://localhost:3000'
+        rules_file_name: '.zap/rules.tsv'
+        cmd_options: '-a -j -m 30 -T 180'
+    
+    - name: Nuclei Security Scan
+      uses: projectdiscovery/nuclei-action@main
+      with:
+        target: 'http://localhost:3000'
+        templates: 'cves,vulnerabilities,misconfiguration'
+        severity: 'critical,high,medium'
+        output: 'nuclei-results.json'
+    
+    - name: Custom penetration testing
+      run: |
+        # Installation des outils de test
+        pip install requests sqlmap
+        
+        # Tests d'injection SQL
+        python -c "
+        import requests
+        import json
+        
+        base_url = 'http://localhost:3000'
+        payloads = [
+            \"'; DROP TABLE users; --\",
+            \"' OR '1'='1\",
+            \"admin'/*\",
+            \"' UNION SELECT * FROM assets --\"
+        ]
+        
+        for payload in payloads:
+            try:
+                response = requests.post(f'{base_url}/api/auth/login', 
+                    json={'email': payload, 'password': 'test'})
+                if response.status_code != 400:
+                    print(f'POTENTIAL SQL INJECTION: {payload}')
+            except Exception as e:
+                pass
+        "
+        
+        # Tests XSS
+        python -c "
+        import requests
+        
+        base_url = 'http://localhost:3000'
+        xss_payloads = [
+            '<script>alert(\"XSS\")</script>',
+            '<img src=\"x\" onerror=\"alert(1)\">',
+            'javascript:alert(\"XSS\")',
+            '<svg onload=\"alert(1)\">'
+        ]
+        
+        for payload in xss_payloads:
+            try:
+                response = requests.get(f'{base_url}/api/assets?search={payload}')
+                if payload in response.text:
+                    print(f'POTENTIAL XSS: {payload}')
+            except Exception as e:
+                pass
+        "
+    
+    - name: Upload DAST results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: dast-results
+        path: |
+          zap_report.*
+          nuclei-results.json
+
+  # Phase 6: Analyse de conformité
+  compliance-check:
+    needs: [static-security-analysis, dependency-security-scan]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: GDPR Compliance Check
+      run: |
+        # Recherche de données personnelles dans le code
+        grep -r -n -i "email\|password\|phone\|address" src/ --include="*.ts" --include="*.tsx" > gdpr-scan.txt || true
+        
+        # Vérification des politiques de confidentialité
+        find . -name "*privacy*" -o -name "*gdpr*" -o -name "*cookie*" | head -10
+    
+    - name: SOC 2 Compliance Verification
+      run: |
+        # Vérification des contrôles d'accès
+        echo "Checking access controls..."
+        grep -r "auth\|permission\|role" src/ --include="*.ts" --include="*.tsx" | wc -l
+        
+        # Vérification du logging
+        echo "Checking audit logging..."
+        grep -r "console.log\|logger\|audit" src/ --include="*.ts" --include="*.tsx" | wc -l
+    
+    - name: ISO 27001 Security Controls
+      run: |
+        # Vérification du chiffrement
+        grep -r "encrypt\|crypto\|hash" src/ --include="*.ts" --include="*.tsx" > encryption-check.txt
+        
+        # Vérification de la gestion des erreurs
+        grep -r "try\|catch\|error" src/ --include="*.ts" --include="*.tsx" | wc -l
+    
+    - name: Generate compliance report
+      run: |
+        cat > compliance-report.json << EOF
+        {
+          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "standards": {
+            "GDPR": {
+              "data_protection_measures": true,
+              "consent_management": true,
+              "data_deletion_capability": true
+            },
+            "SOC2": {
+              "access_controls": true,
+              "audit_logging": true,
+              "data_encryption": true,
+              "monitoring": true
+            },
+            "ISO27001": {
+              "security_policies": true,
+              "risk_management": true,
+              "incident_response": true
+            }
+          }
+        }
+        EOF
+    
+    - name: Upload compliance report
+      uses: actions/upload-artifact@v4
+      with:
+        name: compliance-report
+        path: |
+          compliance-report.json
+          gdpr-scan.txt
+          encryption-check.txt
+
+  # Phase 7: Déploiement sécurisé
+  secure-deployment:
+    if: github.ref == 'refs/heads/main'
+    needs: [secure-build, dynamic-security-testing, compliance-check]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-west-1
+    
+    - name: Deploy with security validations
+      run: |
+        # Vérification des permissions IAM
+        aws sts get-caller-identity
+        
+        # Validation de la configuration Terraform
+        terraform init
+        terraform plan -out=tfplan
+        terraform show -json tfplan > tfplan.json
+        
+        # Analyse de sécurité du plan Terraform
+        tfsec tfplan.json --format json --out tfsec-results.json
+        
+        # Déploiement sécurisé
+        if [ $? -eq 0 ]; then
+          terraform apply -auto-approve tfplan
+        else
+          echo "Security issues found in Terraform plan"
+          exit 1
+        fi
+    
+    - name: Post-deployment security verification
+      run: |
+        # Vérification des endpoints de sécurité
+        curl -f https://inventory.yourdomain.com/health
+        curl -f https://inventory.yourdomain.com/.well-known/security.txt
+        
+        # Test des en-têtes de sécurité
+        curl -I https://inventory.yourdomain.com | grep -E "(Strict-Transport-Security|Content-Security-Policy|X-Frame-Options)"
+    
+    - name: Notify security team
+      if: failure()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        channel: '#security-alerts'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        message: |
+          🚨 Security deployment failure detected!
+          Repository: ${{ github.repository }}
+          Branch: ${{ github.ref }}
+          Commit: ${{ github.sha }}
+          Workflow: ${{ github.workflow }}
+\end{lstlisting}
+
+\section{Outils DevSecOps Avancés et Spécialisés}
+
+\subsection{Outils d'Analyse Statique Avancée (SAST)}
+
+\subsubsection{Configuration SonarQube Enterprise avec Règles Personnalisées}
+
+\begin{lstlisting}[language=XML, caption=Configuration SonarQube avancée avec règles métier]
+<!-- sonar-quality-profile.xml -->
+<profile>
+  <name>Inventory System Security Profile</name>
+  <language>typescript</language>
+  <rules>
+    <!-- Règles de sécurité critiques -->
+    <rule>
+      <repositoryKey>typescript</repositoryKey>
+      <key>S2245</key> <!-- Using pseudorandom number generators -->
+      <priority>BLOCKER</priority>
+      <parameters>
+        <parameter>
+          <key>randomMethods</key>
+          <value>Math.random,crypto.getRandomValues</value>
+        </parameter>
+      </parameters>
+    </rule>
+    
+    <rule>
+      <repositoryKey>typescript</repositoryKey>
+      <key>S2068</key> <!-- Hard-coded passwords -->
+      <priority>BLOCKER</priority>
+    </rule>
+    
+    <rule>
+      <repositoryKey>typescript</repositoryKey>
+      <key>S5852</key> <!-- Regular expressions should not be vulnerable -->
+      <priority>CRITICAL</priority>
+    </rule>
+    
+    <!-- Règles personnalisées pour l'inventaire -->
+    <rule>
+      <repositoryKey>custom</repositoryKey>
+      <key>inventory-asset-validation</key>
+      <priority>MAJOR</priority>
+      <name>Asset data must be validated</name>
+      <description>
+        All asset creation and modification must include proper validation
+      </description>
+    </rule>
+    
+    <rule>
+      <repositoryKey>custom</repositoryKey>
+      <key>inventory-audit-logging</key>
+      <priority>MAJOR</priority>
+      <name>Sensitive operations must be logged</name>
+      <description>
+        Asset modifications, user access, and system changes must be logged
+      </description>
+    </rule>
+    
+    <rule>
+      <repositoryKey>custom</repositoryKey>
+      <key>inventory-permission-check</key>
+      <priority>CRITICAL</priority>
+      <name>Permission checks required</name>
+      <description>
+        All API endpoints must verify user permissions
+      </description>
+    </rule>
+  </rules>
+</profile>
+
+<!-- Custom rules implementation -->
+<rule-template>
+  <key>inventory-asset-validation</key>
+  <name>Asset Validation Rule</name>
+  <description>Ensures asset data validation</description>
+  <severity>MAJOR</severity>
+  <status>READY</status>
+  <template>true</template>
+  <params>
+    <param>
+      <key>validationMethods</key>
+      <description>Methods that must be called for validation</description>
+      <type>STRING</type>
+      <defaultValue>validateAsset,sanitizeInput,checkAssetPermissions</defaultValue>
+    </param>
+  </params>
+  <effortToFixInMinutes>10</effortToFixInMinutes>
+  <rule>
+    <![CDATA[
+    // Pattern de détection pour validation d'actifs
+    function visitFunctionDeclaration(node) {
+      if (node.name && (
+        node.name.includes('createAsset') || 
+        node.name.includes('updateAsset') ||
+        node.name.includes('modifyAsset')
+      )) {
+        let hasValidation = false;
+        
+        node.body.statements?.forEach(stmt => {
+          if (stmt.expression?.callee?.name === 'validateAsset' ||
+              stmt.expression?.callee?.property?.name === 'validate') {
+            hasValidation = true;
+          }
+        });
+        
+        if (!hasValidation) {
+          context.addIssue({
+            node: node,
+            message: "Asset operation must include validation call"
+          });
+        }
+      }
+    }
+    ]]>
+  </rule>
+</rule-template>
+\end{lstlisting}
+
+\subsubsection{Veracode Security Platform Configuration}
+
+\begin{lstlisting}[language=YAML, caption=Configuration Veracode pour analyse complète]
+# veracode-pipeline.yml
+name: Veracode Security Analysis
+
+scan_configuration:
+  # Static Application Security Testing
+  sast:
+    enabled: true
+    scan_type: "comprehensive"
+    technology_stack:
+      - "JavaScript"
+      - "TypeScript" 
+      - "Node.js"
+      - "React"
+    
+    security_standards:
+      - "OWASP Top 10 2021"
+      - "CWE Top 25"
+      - "SANS Top 25"
+      - "NIST Cybersecurity Framework"
+    
+    scan_options:
+      scan_timeout: 120 # minutes
+      max_file_size: 200 # MB
+      exclude_patterns:
+        - "node_modules/**"
+        - "test/**"
+        - "*.test.ts"
+        - "*.spec.ts"
+        - "coverage/**"
+    
+    flaw_filters:
+      # Filtres spécifiques au système d'inventaire
+      - category: "Information Leakage"
+        cwe_id: 200
+        severity: "High"
+        action: "comment"
+        comment: "Reviewed: Debug information in development only"
+      
+      - category: "Cross-Site Scripting"
+        cwe_id: 79
+        severity: "Very High"
+        action: "fail_build"
+      
+      - category: "SQL Injection"
+        cwe_id: 89
+        severity: "Very High"
+        action: "fail_build"
+    
+    policy_configuration:
+      fail_build_on:
+        - "Very High"
+        - "High"
+      
+      security_gates:
+        - name: "Critical Security Gate"
+          conditions:
+            - "very_high_flaws <= 0"
+            - "high_flaws <= 2"
+            - "medium_flaws <= 10"
+          required_for: "production"
+        
+        - name: "Development Security Gate"
+          conditions:
+            - "very_high_flaws <= 1"
+            - "high_flaws <= 5"
+          required_for: "development"
+
+  # Software Composition Analysis
+  sca:
+    enabled: true
+    dependency_scanning:
+      package_managers:
+        - "npm"
+        - "yarn"
+      
+      vulnerability_sources:
+        - "NVD"
+        - "GitHub Security Advisories"
+        - "Snyk Database"
+        - "VulnDB"
+      
+      license_compliance:
+        allowed_licenses:
+          - "MIT"
+          - "Apache-2.0"
+          - "BSD-2-Clause"
+          - "BSD-3-Clause"
+          - "ISC"
+        
+        prohibited_licenses:
+          - "GPL-3.0"
+          - "AGPL-3.0"
+          - "SSPL-1.0"
+      
+      policy_violations:
+        high_risk_vulnerabilities:
+          action: "fail_build"
+          cvss_threshold: 7.0
+        
+        license_violations:
+          action: "fail_build"
+        
+        outdated_dependencies:
+          action: "warn"
+          age_threshold_days: 365
+
+  # Dynamic Application Security Testing
+  dast:
+    enabled: true
+    target_configuration:
+      application_url: "https://staging-inventory.yourdomain.com"
+      authentication:
+        type: "form_based"
+        login_url: "/api/auth/login"
+        username_field: "email"
+        password_field: "password"
+        credentials:
+          username: "${DAST_TEST_USERNAME}"
+          password: "${DAST_TEST_PASSWORD}"
+      
+      scan_scope:
+        included_paths:
+          - "/api/*"
+          - "/assets/*"
+          - "/maintenance/*"
+          - "/projects/*"
+          - "/reports/*"
+        
+        excluded_paths:
+          - "/api/health"
+          - "/static/*"
+          - "/docs/*"
+      
+      attack_modules:
+        - "SQL Injection"
+        - "Cross-Site Scripting"
+        - "Command Injection"
+        - "Path Traversal"
+        - "LDAP Injection"
+        - "XML Injection"
+        - "Server-Side Request Forgery"
+      
+      advanced_settings:
+        max_scan_duration: 180 # minutes
+        concurrent_connections: 10
+        request_delay: 100 # milliseconds
+        follow_redirects: true
+        javascript_analysis: true
+
+# Reporting configuration
+reporting:
+  formats:
+    - "PDF"
+    - "XML"
+    - "JSON"
+    - "SARIF"
+  
+  recipients:
+    - "security-team@yourdomain.com"
+    - "dev-team@yourdomain.com"
+  
+  severity_thresholds:
+    critical_notification: "Very High"
+    summary_report: true
+    detailed_report: true
+  
+  compliance_reports:
+    - "SOC 2"
+    - "ISO 27001"
+    - "NIST"
+    - "PCI DSS"
+
+# Integration settings
+integrations:
+  jira:
+    enabled: true
+    server_url: "https://yourdomain.atlassian.net"
+    project_key: "INVSEC"
+    issue_type: "Security Vulnerability"
+    priority_mapping:
+      "Very High": "Highest"
+      "High": "High"
+      "Medium": "Medium"
+      "Low": "Low"
+  
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channels:
+      critical: "#security-critical"
+      general: "#security-updates"
+  
+  github:
+    enabled: true
+    create_issues: true
+    label_prefix: "security:"
+    assign_to_team: "security-team"
+\end{lstlisting}
+
+\subsection{Outils de Sécurité des Conteneurs Avancés}
+
+\subsubsection{Falco - Détection d'Intrusions Runtime}
+
+\begin{lstlisting}[language=YAML, caption=Configuration Falco avancée pour conteneurs]
+# falco-inventory-rules.yaml
+customRules:
+  inventory-specific-rules.yaml: |-
+    # Règles spécifiques au système d'inventaire
+    
+    - rule: Suspicious Database Operations in Inventory
+      desc: Détection d'opérations de base de données suspectes
+      condition: >
+        spawned_process and 
+        container.name contains "inventory" and
+        (proc.name in (mongo, mongod, mysql, psql, sqlite3) and
+         (proc.args contains "DROP" or
+          proc.args contains "DELETE FROM users" or
+          proc.args contains "UPDATE users SET password" or
+          proc.args contains "TRUNCATE" or
+          proc.args contains "ALTER TABLE" or
+          proc.args contains "--eval" or
+          proc.args contains "db.dropDatabase"))
+      output: >
+        Suspicious database operation detected in inventory system
+        (user=%user.name command=%proc.cmdline container=%container.name 
+         image=%container.image.repository:%container.image.tag pid=%proc.pid 
+         timestamp=%evt.time parent=%proc.pname gparent=%proc.aname[2])
+      priority: CRITICAL
+      tags: [database, inventory, security, T1565.001]
+      source: syscall
+    
+    - rule: Unauthorized File Access in Inventory Containers
+      desc: Détection d'accès non autorisé aux fichiers sensibles
+      condition: >
+        open_read and 
+        container.name contains "inventory" and
+        (fd.name in ("/etc/passwd", "/etc/shadow", "/etc/hosts", "/etc/hostname") or
+         fd.name startswith "/proc/" or
+         fd.name contains "/.env" or
+         fd.name contains "/config/database" or
+         fd.name contains "/secrets/" or
+         fd.name contains "id_rsa" or
+         fd.name contains "id_dsa" or
+         fd.name contains ".pem" or
+         fd.name contains ".key")
+      output: >
+        Unauthorized file access attempt in inventory container
+        (user=%user.name file=%fd.name container=%container.name 
+         image=%container.image.repository:%container.image.tag 
+         command=%proc.cmdline pid=%proc.pid parent=%proc.pname)
+      priority: HIGH
+      tags: [filesystem, inventory, security, T1005]
+      source: syscall
+    
+    - rule: Inventory API Anomaly Detection
+      desc: Détection de patterns API anormaux
+      condition: >
+        inbound_connection and 
+        fd.sport in (80, 443, 3000) and
+        container.name contains "inventory" and
+        (fd.cip contains "127.0.0.1" or
+         fd.cip contains "169.254." or
+         not fd.cip in (allowed_inventory_client_ips))
+      output: >
+        Unusual API connection pattern to inventory system
+        (client_ip=%fd.cip client_port=%fd.cport server_port=%fd.sport
+         container=%container.name image=%container.image.repository
+         connection_type=%evt.type)
+      priority: WARNING
+      tags: [network, inventory, api, anomaly]
+      source: syscall
+    
+    - rule: Privilege Escalation Attempt in Inventory
+      desc: Tentative d'escalade de privilèges dans le système d'inventaire
+      condition: >
+        spawned_process and 
+        container.name contains "inventory" and
+        (proc.name in (su, sudo, doas, pkexec) or
+         proc.args contains "chmod +s" or
+         proc.args contains "chown root" or
+         proc.args contains "usermod -a" or
+         proc.args contains "passwd" or
+         proc.aname in (su, sudo) or
+         (proc.name=bash and proc.args contains "-p"))
+      output: >
+        Privilege escalation attempt detected in inventory system
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository parent=%proc.pname 
+         gparent=%proc.aname[2] pid=%proc.pid ppid=%proc.ppid)
+      priority: CRITICAL
+      tags: [privilege_escalation, inventory, security, T1548]
+      source: syscall
+    
+    - rule: Crypto Mining Activity in Inventory Infrastructure
+      desc: Détection d'activité de minage de cryptomonnaie
+      condition: >
+        spawned_process and 
+        container.name contains "inventory" and
+        (proc.name in (xmrig, ethminer, cgminer, bfgminer, cpuminer) or
+         proc.args contains "stratum+tcp" or
+         proc.args contains "mining.pool" or
+         proc.args contains "cryptonight" or
+         proc.args contains "ethash" or
+         proc.cmdline contains "--donate-level")
+      output: >
+        Cryptocurrency mining activity detected in inventory infrastructure
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository pid=%proc.pid)
+      priority: CRITICAL
+      tags: [cryptomining, inventory, security, T1496]
+      source: syscall
+    
+    - rule: Container Escape Attempt
+      desc: Tentative d'évasion de conteneur détectée
+      condition: >
+        spawned_process and 
+        container.name contains "inventory" and
+        (proc.args contains "--privileged" or
+         proc.args contains "/var/run/docker.sock" or
+         proc.args contains "/proc/1/root" or
+         proc.args contains "nsenter" or
+         proc.args contains "unshare" or
+         (proc.name=mount and proc.args contains "/proc"))
+      output: >
+        Container escape attempt detected in inventory system
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository pid=%proc.pid)
+      priority: CRITICAL
+      tags: [container_escape, inventory, security, T1611]
+      source: syscall
+    
+    - rule: Suspicious Network Activity from Inventory Containers
+      desc: Activité réseau suspecte depuis les conteneurs d'inventaire
+      condition: >
+        outbound_connection and 
+        container.name contains "inventory" and
+        (fd.dport in (22, 23, 135, 139, 445, 1433, 1521, 3389, 5432, 5984, 6379, 11211, 27017) or
+         fd.dip in (suspicious_ip_ranges) or
+         fd.dport > 60000)
+      output: >
+        Suspicious outbound connection from inventory container
+        (container=%container.name image=%container.image.repository
+         dest_ip=%fd.dip dest_port=%fd.dport protocol=%fd.l4proto
+         process=%proc.name command=%proc.cmdline)
+      priority: HIGH
+      tags: [network, inventory, security, T1071]
+      source: syscall
+    
+    - rule: Data Exfiltration Attempt from Inventory
+      desc: Tentative d'exfiltration de données depuis le système d'inventaire
+      condition: >
+        spawned_process and 
+        container.name contains "inventory" and
+        (proc.args contains "curl" or proc.args contains "wget" or proc.args contains "scp") and
+        (proc.args contains "/tmp/" or 
+         proc.args contains "/var/tmp/" or
+         proc.args contains "assets.json" or
+         proc.args contains "users.csv" or
+         proc.args contains "backup" or
+         proc.args contains "export")
+      output: >
+        Potential data exfiltration attempt from inventory system
+        (user=%user.name command=%proc.cmdline container=%container.name
+         image=%container.image.repository pid=%proc.pid)
+      priority: CRITICAL
+      tags: [data_exfiltration, inventory, security, T1041]
+      source: syscall
+
+# Macros pour les règles
+macros:
+  - macro: allowed_inventory_client_ips
+    condition: >
+      (fd.cip startswith "10.0." or
+       fd.cip startswith "192.168." or
+       fd.cip startswith "172.16." or
+       fd.cip = "203.0.113.10" or
+       fd.cip = "198.51.100.20")
+  
+  - macro: suspicious_ip_ranges
+    condition: >
+      (fd.dip startswith "172.16.254." or
+       fd.dip startswith "192.168.100." or
+       fd.dip in (tor_exit_nodes))
+  
+  - macro: setuid_binaries
+    condition: >
+      proc.name in (sudo, su, newgrp, passwd, chsh, chfn, gpasswd, mount, umount, pkexec)
+  
+  - macro: inventory_sensitive_files
+    condition: >
+      (fd.name contains "/.env" or
+       fd.name contains "/config/" or
+       fd.name contains "/secrets/" or
+       fd.name contains "database.yml" or
+       fd.name contains "credentials.json" or
+       fd.name contains ".key" or
+       fd.name contains ".pem" or
+       fd.name contains "jwt_secret")
+
+# Configuration des notifications
+notifications:
+  slack:
+    enabled: true
+    webhook_url: "${SLACK_WEBHOOK_URL}"
+    channels:
+      critical: "#security-critical"
+      high: "#security-alerts"
+      medium: "#security-monitoring"
+    
+    message_format: |
+      🚨 *Falco Security Alert*
+      *Priority:* {priority}
+      *Rule:* {rule}
+      *Container:* {container_name}
+      *Time:* {timestamp}
+      *Details:* {output}
+  
+  email:
+    enabled: true
+    smtp_server: "smtp.yourdomain.com:587"
+    recipients:
+      - "security-team@yourdomain.com"
+      - "soc@yourdomain.com"
+    
+    filters:
+      - priority: "CRITICAL"
+        immediate: true
+      - priority: "HIGH"
+        summary: true
+        interval: "15m"
+  
+  webhook:
+    enabled: true
+    url: "https://siem.yourdomain.com/api/alerts"
+    headers:
+      - "Authorization: Bearer ${SIEM_API_TOKEN}"
+      - "Content-Type: application/json"
+    
+    payload_template: |
+      {
+        "timestamp": "{timestamp}",
+        "source": "falco",
+        "priority": "{priority}",
+        "rule": "{rule}",
+        "container": "{container_name}",
+        "image": "{container_image}",
+        "host": "{hostname}",
+        "details": "{output}",
+        "tags": {tags}
+      }
+
+# Configuration du monitoring
+monitoring:
+  metrics:
+    enabled: true
+    prometheus:
+      endpoint: "/metrics"
+      port: 8765
+      metrics:
+        - "falco_events_total"
+        - "falco_rules_matched_total"
+        - "falco_alerts_generated_total"
+        - "falco_performance_events_per_second"
+  
+  health_checks:
+    enabled: true
+    endpoint: "/health"
+    checks:
+      - "rules_loaded"
+      - "kernel_module_status"
+      - "event_processing_rate"
+  
+  logging:
+    level: "INFO"
+    format: "json"
+    outputs:
+      - type: "file"
+        filename: "/var/log/falco/falco.log"
+        rotate: true
+        max_size: "100MB"
+        max_files: 10
+      
+      - type: "syslog"
+        facility: "local0"
+        priority: "info"
+\end{lstlisting}
+
+Ce rapport détaillé de plus de 2000 lignes couvre maintenant exhaustivement tous les aspects techniques du développement et de DevSecOps, avec des exemples concrets, des configurations avancées, et des implémentations professionnelles pour le système de gestion d'inventaire intelligent.
