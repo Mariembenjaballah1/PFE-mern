@@ -161,8 +161,8 @@ stage('Snyk IaC Scan') {
     withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN')]) {
       sh '''
         snyk auth $SNYK_TOKEN
-        snyk iac test k8s-deployment.yaml --severity-threshold=high --json | snyk-to-html -o snyk-iac-report.html || true
-        snyk iac monitor --file=k8s-deployment.yaml
+        snyk iac test k8s/k8s-deployment.yaml --severity-threshold=high --json | snyk-to-html -o snyk-iac-report.html || true
+        nyk iac monitor k8s/deployment.yaml --org=mariembenjaballah1 --project-name=k8s-iac
       '''
       archiveArtifacts artifacts: 'snyk-iac-report.html', fingerprint: true
     }
