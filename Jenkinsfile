@@ -49,7 +49,21 @@ pipeline {
       }
     }
   
- 
+ stage('Snyk Dependency Scan') {
+  steps {
+    dir('server') {
+      withCredentials([string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN')]) {
+        sh '''
+          snyk auth $SNYK_TOKEN
+          snyk test --file=package.json --json --org=mariembenjaballah1 > snyk-report.json || true
+          snyk-to-html -i snyk-report.json -o snyk-report.html
+          snyk monitor --file=package.json --org=mariembenjaballah1
+        '''
+        archiveArtifacts artifacts: 'server/snyk-report.html', fingerprint: true
+      }
+    }
+  }
+}
     stage('Build Docker Image FRONTEND') {
       steps {
         script {
@@ -163,7 +177,6 @@ stage('Snyk IaC Scan') {
       sh '''
         snyk auth $SNYK_TOKEN
         snyk iac test k8s/k8s-deployment.yaml --severity-threshold=high --json | snyk-to-html -o snyk-iac-report.html || true
-        snyk iac monitor k8s/deployment.yaml --org=mariembenjaballah1 --project-name=k8s-iac
       '''
       archiveArtifacts artifacts: 'snyk-iac-report.html', fingerprint: true
     }
