@@ -11,6 +11,7 @@ pipeline {
     ARGOCD_PASSWORD = credentials('argocd-admin-password')
     ARGOCD_SERVER = '192.168.56.101:31209'
     APP_NAME = 'inventrack-app'
+    KUBECONFIG = '/var/lib/jenkins/kubeconfig'
   }
 
   stages {
