@@ -12,6 +12,7 @@ pipeline {
     ARGOCD_SERVER = '192.168.56.101:31209'
     APP_NAME = 'inventrack-app'
     KUBECONFIG = '/var/lib/jenkins/kubeconfig'
+    BUILD_DATE = "${new Date().format('yyyy-MM-dd HH:mm')}"
   }
 
   stages {
@@ -234,4 +235,25 @@ stage('Snyk IaC Scan') {
       }
     }
   }
+  
+  post {
+    success {
+      notifySlack("✅ *Build Succeeded* 🎉\n• *Job:* `${env.JOB_NAME}`\n• *Build:* #${env.BUILD_NUMBER}\n• *Date:* ${env.BUILD_DATE}\n• *Lien:* <${env.BUILD_URL}|Voir sur Jenkins>")
+    }
+
+    failure {
+      notifySlack("❌ *Build Failed* 🔥\n• *Job:* `${env.JOB_NAME}`\n• *Build:* #${env.BUILD_NUMBER}\n• *Date:* ${env.BUILD_DATE}\n• *Lien:* <${env.BUILD_URL}|Voir sur Jenkins>")
+    }
+  }
+}
+
+def notifySlack(String message) {
+  withCredentials([string(credentialsId: 'SLACK_URL', variable: 'SLACK_URL')]) {
+    sh """
+      curl -X POST -H 'Content-type: application/json' --data '{
+        "text": "${message}"
+      }' "$SLACK_URL"
+    """
+  }
+}
 }
