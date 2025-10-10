@@ -256,4 +256,4 @@ def notifySlack(String message) {
     """
   }
 }
-}
+
