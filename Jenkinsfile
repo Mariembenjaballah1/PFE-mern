@@ -59,7 +59,7 @@ pipeline {
           snyk-to-html -i snyk-report.json -o snyk-report.html
           snyk monitor --file=package.json --org=mariembenjaballah1
         '''
-        archiveArtifacts artifacts: 'server/snyk-report.html', fingerprint: true
+        archiveArtifacts artifacts: 'snyk-report.html', fingerprint: true
       }
     }
   }
