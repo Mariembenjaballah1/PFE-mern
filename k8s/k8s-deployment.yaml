@@ -7,8 +7,8 @@ metadata:
   namespace: inventrack
 type: Opaque
 data:
-  JWT_SECRET: eW91cl9qd3Rfc2VjcmV0X2tleV9oZXJl            # Remplace par base64(JWT_SECRET)
-  JWT_REFRESH_SECRET: eW91cl9qd3RfcmVmcmVzaF9zZWNyZXRfa2V5X2hlcmU=       # Remplace par base64(JWT_REFRESH_SECRET)
+  JWT_SECRET: dDBNNHZFam4xYlZTdGMxb1RRNnVuc2I5aFcxVDBlb3A=            # Remplace par base64(JWT_SECRET)
+  JWT_REFRESH_SECRET:SUhVU0xudUVhWVlxb1R0TmhFNXRrVGk0eklYcENrdzY=      # Remplace par base64(JWT_REFRESH_SECRET)
 ---
 apiVersion: v1
 kind: PersistentVolume
