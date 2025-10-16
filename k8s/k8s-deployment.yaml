@@ -1,4 +1,15 @@
 ---
+# 🔐 Secret contenant les JWT (valeurs encodées base64 depuis Vault Web UI)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: inventrack
+type: Opaque
+data:
+  JWT_SECRET: bXlfc2VjcmV0X2p3dA==              # Remplace par base64(JWT_SECRET)
+  JWT_REFRESH_SECRET: cmVmcmVzaF9qd3Q=         # Remplace par base64(JWT_REFRESH_SECRET)
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -86,7 +97,7 @@ spec:
     - port: 5000
       targetPort: 5000
 ---
-# Backend Deployment
+# ✅ Backend Deployment — modifié pour utiliser les secrets
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -104,7 +115,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: mariembenjaballah/mern-backend:latest # Remplace par ton image
+          image: mariembenjaballah/mern-backend:latest
           ports:
             - containerPort: 5000
           env:
@@ -115,9 +126,15 @@ spec:
             - name: MONGODB_URI
               value: "mongodb://mongo:27017/inventrackdb"
             - name: JWT_SECRET
-              value: "your_jwt_secret_key_here"
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_SECRET
             - name: JWT_REFRESH_SECRET
-              value: "your_jwt_refresh_secret_key_here"
+              valueFrom:
+                secretKeyRef:
+                  name: backend-secrets
+                  key: JWT_REFRESH_SECRET
 ---
 # Frontend Service
 apiVersion: v1
@@ -152,10 +169,10 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: mariembenjaballah/mern-frontend:v6 # Remplace par ton image
+          image: mariembenjaballah/mern-frontend:v6
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
-          env:                  # <-- Ajout de la partie env ici
+          env:
             - name: VITE_API_URL
               value: "http://backend.inventrack.svc.cluster.local:5000/api"
