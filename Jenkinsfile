@@ -48,16 +48,20 @@ stage('Fetch Secrets from Vault') {
         withCredentials([string(credentialsId: 'SecretVault', variable: 'VAULT_TOKEN')]) {
             // Récupère les secrets depuis Vault
             withVault([
-                vaultSecrets: [
-                    [
-                        path: 'secret/data/backend',   // chemin KV dans Vault
-                        secretValues: [
-                            [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
-                            [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
-                        ]
-                    ]
-                ]
-            ]) {
+    vaultSecrets: [[
+        path: 'secret/backend',        // sans 'data' ici
+        engineVersion: 2,              // précise KV version 2
+        secretValues: [
+            [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
+            [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
+        ]
+    ]]
+]) {
+    sh '''
+        echo "JWT_SECRET=$JWT_SECRET"
+        echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
+    '''
+}
                 // Les secrets sont maintenant disponibles comme variables d'environnement
                 sh """
                    echo "✅ Secrets JWT récupérés depuis Vault"
