@@ -1,15 +1,4 @@
 ---
-# 🔐 Secret contenant les JWT (valeurs encodées base64 depuis Vault Web UI)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: backend-secrets
-  namespace: inventrack
-type: Opaque
-data:
-  JWT_SECRET: dDBNNHZFam4xYlZTdGMxb1RRNnVuc2I5aFcxVDBlb3A=            # Remplace par base64(JWT_SECRET)
-  JWT_REFRESH_SECRET: SUhVU0xudUVhWVlxb1R0TmhFNXRrVGk0eklYcENrdzY=      # Remplace par base64(JWT_REFRESH_SECRET)
----
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -126,15 +115,9 @@ spec:
             - name: MONGODB_URI
               value: "mongodb://mongo:27017/inventrackdb"
             - name: JWT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: JWT_SECRET
+              value: "${JWT_SECRET}"                # Injecté par Jenkins depuis Vault
             - name: JWT_REFRESH_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: backend-secrets
-                  key: JWT_REFRESH_SECRET
+              value: "${JWT_REFRESH_SECRET}"        # Injecté par Jenkins depuis Vault
 ---
 # Frontend Service
 apiVersion: v1
