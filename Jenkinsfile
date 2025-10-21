@@ -181,7 +181,16 @@ stage('Snyk IaC Scan') {
     }
   }
 }
-    stage('Sync Vault via ArgoCD') {
+    
+
+        stage('Login Argo CD') {
+            steps {
+                sh """
+                argocd login ${env.ARGOCD_SERVER} --username ${env.ARGOCD_USERNAME} --password ${env.ARGOCD_PASSWORD} --insecure
+                """
+            }
+        }
+  stage('Sync Vault via ArgoCD') {
     steps {
         withCredentials([usernamePassword(credentialsId: 'argocd-admin-password', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASSWORD')]) {
             sh """
@@ -218,15 +227,6 @@ stage('Fetch Secrets from Vault') {
         }
     }
 }
-
-        stage('Login Argo CD') {
-            steps {
-                sh """
-                argocd login ${env.ARGOCD_SERVER} --username ${env.ARGOCD_USERNAME} --password ${env.ARGOCD_PASSWORD} --insecure
-                """
-            }
-        }
-  
 
         stage('Sync Application') {
             steps {
