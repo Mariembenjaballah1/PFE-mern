@@ -24,83 +24,7 @@ pipeline {
       }
     }
     
-        stage('Login Argo CD') {
-            steps {
-                sh """
-                argocd login ${env.ARGOCD_SERVER} --username ${env.ARGOCD_USERNAME} --password ${env.ARGOCD_PASSWORD} --insecure
-                """
-            }
-        }
-  stage('Sync Vault via ArgoCD') {
-    steps {
-       
-            sh """
-            
-                argocd app sync vault
-                argocd app wait vault --health --timeout 300
-            """
-        }
-    }
-stage('Fetch Secrets from Vault') {
-  steps {
-    withVault([
-      configuration: [
-        vaultUrl: 'http://192.168.56.101:30820',
-        vaultCredentialId: 'SecretVault',
-        engineVersion: 2
-      ],
-      vaultSecrets: [[
-        path: 'secret/backend',
-        secretValues: [
-          [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
-          [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
-        ]
-      ]]
-    ]) {
-      sh '''
-        echo "✅ Secrets récupérés depuis Vault"
-        echo "JWT_SECRET=$JWT_SECRET"
-        echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
-      '''
-    }
-  }
-}
-
-
-
-        stage('Sync Application') {
-            steps {
-                sh "argocd app sync ${env.APP_NAME}"
-            }
-        }
-
-        stage('Wait for Healthy') {
-            steps {
-                sh "argocd app wait ${env.APP_NAME} --health --timeout 300"
-            }
-        }
-
-        stage('Check Pods Status') {
-            steps {
-                script {
-                    def namespace = 'inventrack'
-                    def podsStatus = sh (
-                        script: "kubectl get pods -n ${namespace} --no-headers",
-                        returnStdout: true
-                    ).trim()
-
-                    echo "Pods status:\n${podsStatus}"
-
-                    def notRunning = podsStatus.readLines().findAll { !it.contains("Running") }
-
-                    if (notRunning.size() > 0) {
-                        error "Certains pods ne sont pas en état Running:\n${notRunning.join('\n')}"
-                    } else {
-                        echo "Tous les pods sont en Running ✅"
-                    }
-                }
-            }
-        }
+        
 
     stage('Install Dependencies') {
       steps {
@@ -259,7 +183,83 @@ stage('Snyk IaC Scan') {
     }
   }
 }
-    
+    stage('Login Argo CD') {
+            steps {
+                sh """
+                argocd login ${env.ARGOCD_SERVER} --username ${env.ARGOCD_USERNAME} --password ${env.ARGOCD_PASSWORD} --insecure
+                """
+            }
+        }
+  stage('Sync Vault via ArgoCD') {
+    steps {
+       
+            sh """
+            
+                argocd app sync vault
+                argocd app wait vault --health --timeout 300
+            """
+        }
+    }
+stage('Fetch Secrets from Vault') {
+  steps {
+    withVault([
+      configuration: [
+        vaultUrl: 'http://192.168.56.101:30820',
+        vaultCredentialId: 'SecretVault',
+        engineVersion: 2
+      ],
+      vaultSecrets: [[
+        path: 'secret/backend',
+        secretValues: [
+          [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
+          [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
+        ]
+      ]]
+    ]) {
+      sh '''
+        echo "✅ Secrets récupérés depuis Vault"
+        echo "JWT_SECRET=$JWT_SECRET"
+        echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
+      '''
+    }
+  }
+}
+
+
+
+        stage('Sync Application') {
+            steps {
+                sh "argocd app sync ${env.APP_NAME}"
+            }
+        }
+
+        stage('Wait for Healthy') {
+            steps {
+                sh "argocd app wait ${env.APP_NAME} --health --timeout 300"
+            }
+        }
+
+        stage('Check Pods Status') {
+            steps {
+                script {
+                    def namespace = 'inventrack'
+                    def podsStatus = sh (
+                        script: "kubectl get pods -n ${namespace} --no-headers",
+                        returnStdout: true
+                    ).trim()
+
+                    echo "Pods status:\n${podsStatus}"
+
+                    def notRunning = podsStatus.readLines().findAll { !it.contains("Running") }
+
+                    if (notRunning.size() > 0) {
+                        error "Certains pods ne sont pas en état Running:\n${notRunning.join('\n')}"
+                    } else {
+                        echo "Tous les pods sont en Running ✅"
+                    }
+                }
+            }
+        }
 
     
     stage('Quality Gate') {
