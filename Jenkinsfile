@@ -42,29 +42,25 @@ pipeline {
         }
     }
 
-stage('Fetch Secrets from Vault') {
-  steps {
-    withCredentials([string(credentialsId: 'SecretVault', variable: 'VAULT_TOKEN')]) {
-      withVault([
-        vaultUrl: 'http://192.168.56.101:30820',  // ⚠️ Spécifie l’URL
-        vaultCredentialId: 'SecretVault',         // ID du token Jenkins
-        engineVersion: 2,
-        vaultSecrets: [[
-          path: 'secret/backend',                // 🔍 sans 'data'
-          secretValues: [
-            [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
-            [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
-          ]
-        ]]
-      ]) {
-        sh '''
-          echo "✅ Secrets récupérés depuis Vault"
-          echo "JWT_SECRET=$JWT_SECRET"
-          echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
-        '''
-      }
-    }
-  }
+withVault([
+  configuration: [
+    vaultUrl: 'http://192.168.56.101:30820',
+    vaultCredentialId: 'SecretVault',
+    engineVersion: 2
+  ],
+  vaultSecrets: [[
+    path: 'secret/backend',
+    secretValues: [
+      [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
+      [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
+    ]
+  ]]
+]) {
+  sh '''
+    echo "✅ Secrets récupérés depuis Vault"
+    echo "JWT_SECRET=$JWT_SECRET"
+    echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
+  '''
 }
 
 
