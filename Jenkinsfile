@@ -47,7 +47,7 @@ stage('Fetch Secrets from Vault') {
         withCredentials([string(credentialsId: 'SecretVault', variable: 'VAULT_TOKEN')]) {
             withVault([
                 vaultSecrets: [[
-                    path: 'secret/backend',
+                    path: 'secret/backend',     // Ne pas mettre 'data'
                     engineVersion: 2,
                     secretValues: [
                         [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
@@ -56,18 +56,15 @@ stage('Fetch Secrets from Vault') {
                 ]]
             ]) {
                 sh '''
+                    echo "✅ Secrets JWT récupérés depuis Vault"
                     echo "JWT_SECRET=$JWT_SECRET"
                     echo "JWT_REFRESH_SECRET=$JWT_REFRESH_SECRET"
                 '''
-                sh """
-                   echo "✅ Secrets JWT récupérés depuis Vault"
-                   echo "JWT_SECRET=${JWT_SECRET}"
-                   echo "JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}"
-                """
             }
         }
     }
 }
+
 
 
         stage('Sync Application') {
