@@ -192,15 +192,15 @@ stage('Snyk IaC Scan') {
         }
   stage('Sync Vault via ArgoCD') {
     steps {
-        withCredentials([usernamePassword(credentialsId: 'argocd-admin-password', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASSWORD')]) {
+       
             sh """
-                argocd login ${env.ARGOCD_SERVER} --username $ARGOCD_USER --password $ARGOCD_PASSWORD --insecure
+            
                 argocd app sync vault-app
                 argocd app wait vault-app --health --timeout 300
             """
         }
     }
-}
+
 stage('Fetch Secrets from Vault') {
     steps {
         // Injecte le token Vault depuis Jenkins
