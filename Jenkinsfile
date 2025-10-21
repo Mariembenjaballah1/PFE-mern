@@ -204,7 +204,7 @@ stage('Snyk IaC Scan') {
 stage('Fetch Secrets from Vault') {
     steps {
         // Injecte le token Vault depuis Jenkins
-        withCredentials([string(credentialsId: 'VAULT_CREDENTIAL_ID', variable: 'VAULT_TOKEN')]) {
+        withCredentials([string(credentialsId: 'SecretVault', variable: 'VAULT_TOKEN')]) {
             // Récupère les secrets depuis Vault
             withVault([
                 vaultSecrets: [
