@@ -13,6 +13,8 @@ pipeline {
     APP_NAME = 'inventrack-app'
     KUBECONFIG = '/var/lib/jenkins/kubeconfig'
     BUILD_DATE = "${new Date().format('yyyy-MM-dd HH:mm')}"
+    VAULT_ADDR = 'http://192.168.56.101:30820'       // URL du service Vault dans ton cluster
+    VAULT_CREDENTIAL_ID = 'SecretVault' 
   }
 
   stages {
@@ -178,6 +180,43 @@ stage('Snyk IaC Scan') {
       archiveArtifacts artifacts: 'snyk-iac-report.html', fingerprint: true
     }
   }
+}
+    stage('Sync Vault via ArgoCD') {
+    steps {
+        withCredentials([usernamePassword(credentialsId: 'argocd-admin-password', usernameVariable: 'ARGOCD_USER', passwordVariable: 'ARGOCD_PASSWORD')]) {
+            sh """
+                argocd login ${env.ARGOCD_SERVER} --username $ARGOCD_USER --password $ARGOCD_PASSWORD --insecure
+                argocd app sync vault-app
+                argocd app wait vault-app --health --timeout 300
+            """
+        }
+    }
+}
+stage('Fetch Secrets from Vault') {
+    steps {
+        // Injecte le token Vault depuis Jenkins
+        withCredentials([string(credentialsId: 'VAULT_CREDENTIAL_ID', variable: 'VAULT_TOKEN')]) {
+            // Récupère les secrets depuis Vault
+            withVault([
+                vaultSecrets: [
+                    [
+                        path: 'secret/data/backend',   // chemin KV dans Vault
+                        secretValues: [
+                            [envVar: 'JWT_SECRET', vaultKey: 'JWT_SECRET'],
+                            [envVar: 'JWT_REFRESH_SECRET', vaultKey: 'JWT_REFRESH_SECRET']
+                        ]
+                    ]
+                ]
+            ]) {
+                // Les secrets sont maintenant disponibles comme variables d'environnement
+                sh """
+                   echo "✅ Secrets JWT récupérés depuis Vault"
+                   echo "JWT_SECRET=${JWT_SECRET}"
+                   echo "JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}"
+                """
+            }
+        }
+    }
 }
 
         stage('Login Argo CD') {
