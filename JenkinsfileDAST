@@ -1,0 +1,24 @@
+pipeline {
+  agent any
+
+  environment {
+    SNYK_TOKEN = credentials('SNYK_TOKEN')
+    SNYK_ORG = 'mariembenjaballah1'
+    TARGET_URL = 'http://192.168.56.101:30904/api'
+  }
+
+  stages {
+    stage('DAST Snyk Scan') {
+      steps {
+        script {
+          sh '''
+            snyk auth $SNYK_TOKEN
+            snyk test --dast $TARGET_URL --org=$SNYK_ORG --json > snyk-dast-report.json || true
+            snyk-to-html -i snyk-dast-report.json -o snyk-dast-report.html || true
+          '''
+          archiveArtifacts artifacts: 'snyk-dast-report.html'
+        }
+      }
+    }
+  }
+}
